@@ -1,0 +1,2 @@
+class CogNotFoundError(Exception):
+    pass
