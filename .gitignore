@@ -207,4 +207,4 @@ fabric.properties
 secret/
 
 # Database instance
-resources/database.sqlite3
+resources/*.sqlite3

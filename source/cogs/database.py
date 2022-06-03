@@ -5,6 +5,10 @@ from discord import Bot, Cog
 
 
 class Database(Cog):
+    """Entry point to databases.
+
+    Creates a connection and a cursor to the provided database.
+    """
     bot: Bot
     __connection: Connection
     __cursor: Cursor
@@ -15,8 +19,15 @@ class Database(Cog):
         self.__cursor = self.__connection.cursor()
 
     def commit(self):
+        """
+        Shortcut to connection.commit()
+        """
         self.__connection.commit()
 
     @property
     def cursor(self):
         return self.__cursor
+
+    @property
+    def connection(self):
+        return self.__connection
