@@ -202,3 +202,9 @@ fabric.properties
 
 # Android studio 3.1+ serialized cache file
 .idea/caches/build_file_checksums.ser
+
+# Token and other sensitive information
+secret/
+
+# Database instance
+resources/database.sqlite3
