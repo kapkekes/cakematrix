@@ -5,8 +5,13 @@ formatters:
         format: '[{levelname:^9}] - ({name:^30}), {asctime} - {message}'
         datefmt: '%Y.%m.%d, %H:%M:%S'
         style: '{'
-    colorful:
-        class: source.colorful_formatter.ColorfulFormatter
+    colorful_terminal:
+        class: source.logging_stuff.TerminalColorfulFormatter
+        format: '[{levelname:^9}] - ({name:^30}), {asctime} - {message}'
+        datefmt: '%Y.%m.%d, %H:%M:%S'
+        style: '{'
+    colorful_discord:
+        class: source.logging_stuff.DiscordColorfulFormatter
         format: '[{levelname:^9}] - ({name:^30}), {asctime} - {message}'
         datefmt: '%Y.%m.%d, %H:%M:%S'
         style: '{'
@@ -16,15 +21,21 @@ handlers:
         level: DEBUG
         formatter: black_white
         filename: cakematrix.log
-    console:
+    terminal:
         class: logging.StreamHandler
         level: DEBUG
-        formatter: colorful
+        formatter: colorful_terminal
         stream: ext://sys.stdout
+    discord:
+        class: source.logging_stuff.WebhookHandler
+        level: DEBUG
+        formatter: colorful_discord
+        webhook_url: 'https://discord.com/api/webhooks/982739830213578792/870U9Gy1fcVlfYAKs0RyEViIORaIrsAHOlqkHkPfi0L5iFg-BvuHCzRC8PR7LcyBEZn-'
+
 loggers:
     source.cogs:
         level: DEBUG
-        handlers: [file, console]
+        handlers: [file, terminal, discord]
     discord:
         level: INFO
-        handlers: [file, console]
+        handlers: [file, terminal, discord]
