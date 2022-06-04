@@ -1,4 +1,4 @@
-__all__ = ["TOKEN", "ADMIN", "GROUPS"]
+__all__ = ["TOKEN", "ADMIN", "GUILDS"]
 
 from .token import TOKEN
-from .ids import ADMIN, GROUPS
+from .ids import ADMIN, GUILDS
