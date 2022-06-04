@@ -1,0 +1,30 @@
+version: 1
+formatters:
+    black_white:
+        class: logging.Formatter
+        format: '[{levelname:^9}] - ({name:^30}), {asctime} - {message}'
+        datefmt: '%Y.%m.%d, %H:%M:%S'
+        style: '{'
+    colorful:
+        class: source.colorful_formatter.ColorfulFormatter
+        format: '[{levelname:^9}] - ({name:^30}), {asctime} - {message}'
+        datefmt: '%Y.%m.%d, %H:%M:%S'
+        style: '{'
+handlers:
+    file:
+        class: logging.FileHandler
+        level: DEBUG
+        formatter: black_white
+        filename: cakematrix.log
+    console:
+        class: logging.StreamHandler
+        level: DEBUG
+        formatter: colorful
+        stream: ext://sys.stdout
+loggers:
+    source.cogs:
+        level: DEBUG
+        handlers: [file, console]
+    discord:
+        level: INFO
+        handlers: [file, console]
