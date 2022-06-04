@@ -208,3 +208,6 @@ secret/
 
 # Database instance
 resources/*.sqlite3
+
+# Bot log
+cakematrix.log
