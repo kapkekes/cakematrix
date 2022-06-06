@@ -6,13 +6,13 @@ formatters:
         datefmt: '%Y.%m.%d, %H:%M:%S'
         style: '{'
     colorful_terminal:
-        class: source.logging_stuff.TerminalColorfulFormatter
+        class: source.custom_logging.TerminalColorfulFormatter
         format: '[{levelname:^9}] - ({name:^30}), {asctime} - {message}'
         datefmt: '%Y.%m.%d, %H:%M:%S'
         style: '{'
     colorful_discord:
-        class: source.logging_stuff.DiscordColorfulFormatter
-        format: '[{levelname:^9}] - ({name:^30}), {asctime} - {message}'
+        class: source.custom_logging.DiscordColorfulFormatter
+        format: '[ {levelname} ] - ( {name} ), {asctime} - {message}'
         datefmt: '%Y.%m.%d, %H:%M:%S'
         style: '{'
 handlers:
@@ -27,11 +27,10 @@ handlers:
         formatter: colorful_terminal
         stream: ext://sys.stdout
     discord:
-        class: source.logging_stuff.WebhookHandler
+        class: source.custom_logging.WebhookHandler
         level: DEBUG
         formatter: colorful_discord
         webhook_url: 'https://discord.com/api/webhooks/982739830213578792/870U9Gy1fcVlfYAKs0RyEViIORaIrsAHOlqkHkPfi0L5iFg-BvuHCzRC8PR7LcyBEZn-'
-
 loggers:
     source.cogs:
         level: DEBUG

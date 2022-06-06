@@ -1,10 +1,12 @@
 from importlib.resources import path
 from logging import getLogger
 
-from discord import ApplicationContext, Bot, Cog, Option, slash_command
+from discord import ApplicationContext, Bot, Cog, Interaction, Option, slash_command
 
 from source.exceptions import CogNotFoundError
 from source.cogs.database_handler import DatabaseHandler
+from utilities.conventers import str_to_datetime
+from builders import build_embed, build_enroll_view
 from secret import GUILDS
 
 import resources
@@ -52,6 +54,10 @@ with path(resources, "database.sqlite3") as p:
     PATH_TO_DATABASE = p
 
 
+async def enroll():
+    ...
+
+
 class LFG(Cog):
     """Cog with looking-for-group functionality.
 
@@ -68,23 +74,21 @@ class LFG(Cog):
 
     @slash_command(**decorators["create_lfg_post"])
     async def create_lfg_post(self, context: ApplicationContext, raid, time, note):
-        ...
-        # author = context.user
-        # logger.warning(f'{author} used {colored("/lfg", attrs=["bold"])}')
-        #
-        # try:
-        #     timestamp = convert_to_datetime(time)
-        # except ValueError:
-        #     logger.warning(f'{author} put incorrect format time')
-        #     return await context.respond('Ошибка: время имеет некорректный формат.', ephemeral=True)
-        #
-        # response: discord.Interaction = await context.respond('Создаю сбор...')
-        # embed = emb.build_embed(raid, author, timestamp, note, response.id)
-        # buttons = elm.create_enroll_view(response.id, enroll)
-        #
-        # await response.edit_original_message(content='', embed=embed, view=buttons)
-        #
-        # self.__db.create_lfg(response_id=response.id, activity=raid, author_id=author.id, timestamp=timestamp)
+        author = context.user
+
+        try:
+            timestamp = str_to_datetime(time)
+        except ValueError:
+            logger.debug(f'{author} used /lfg command, but put incorrect format time')
+            return await context.respond('Ошибка: время имеет некорректный формат.', ephemeral=True)
+
+        response: Interaction = await context.respond('Создаю сбор...')
+        embed = build_embed(raid, author, timestamp, note, response.id)
+        buttons = build_enroll_view(response.id, enroll)
+
+        await response.edit_original_message(content='', embed=embed, view=buttons)
+
+        self.__db_handler.create_lfg(response_id=response.id, activity=raid, author_id=author.id, timestamp=timestamp)
 
 
 def setup(bot: Bot):

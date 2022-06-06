@@ -34,6 +34,7 @@ class DiscordColorfulFormatter(Formatter):
         return DISCORD_MAPPING[record.levelname].format(super().format(record))
 
 
+# TODO: Add correct error handling
 class WebhookHandler(Handler):
     webhook_url: str
 
@@ -44,6 +45,13 @@ class WebhookHandler(Handler):
     def format(self, record: LogRecord) -> dict[str, Any]:
         return {"content": super().format(record)}
 
-    # TODO: Add correct error handling
     def emit(self, record: LogRecord) -> None:
         post(self.webhook_url, self.format(record))
+
+
+def addition(a, b):
+    return a + b
+
+
+if __name__ == '__main__':
+    print(addition('Привет, ', 'Коля!'))
