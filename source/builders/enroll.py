@@ -16,8 +16,8 @@ COLORS = {
 
 
 class EnrollButton(Button):
-    def __init__(self, enroll_type: str, lfg_id: int, callback: Callable[[Interaction], Coroutine]):
-        super().__init__(label=LABELS[enroll_type], style=COLORS[enroll_type], custom_id=f"{enroll_type}_{lfg_id}")
+    def __init__(self, enroll_type: str, response_id: int, callback: Callable[[Interaction], Coroutine]):
+        super().__init__(label=LABELS[enroll_type], style=COLORS[enroll_type], custom_id=f"{enroll_type}_{response_id}")
         self.callback = callback
 
 

@@ -4,6 +4,8 @@ from importlib.resources import path
 from discord import Bot
 from yaml import full_load
 
+from secret import TOKEN
+
 import config
 
 
@@ -14,3 +16,4 @@ if __name__ == '__main__':
     cakematrix = Bot()
     cakematrix.load_extension("source.cogs.database_handler")
     cakematrix.load_extension("source.cogs.looking_for_group")
+    cakematrix.run(TOKEN)

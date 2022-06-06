@@ -25,7 +25,7 @@ def build_embed(raid_id: str, author: User, time: datetime, note: str, response_
         "color": colors["raid"],
         "fields": [
             {
-                "name": "Заметка от лидера",
+                "name": ":ledger: | Заметка от лидера",
                 "value": lines(note),
                 "inline": False
             },

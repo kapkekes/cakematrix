@@ -45,4 +45,4 @@ class DatabaseHandler(Cog):
 
 def setup(bot: Bot):
     bot.add_cog(DatabaseHandler(bot))
-    logger.info("Database handler cog was added to your bot.")
+    logger.info("Database handler cog was added to your bot")
