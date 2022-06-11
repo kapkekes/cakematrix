@@ -120,42 +120,56 @@ def pass_to_enroll(cog: LFG):
 
         (_, _, author_id, time, main, reserve) = result
 
+        fetcher = {
+            "main": (main, reserve),
+            "reserve": (reserve, main)
+        }
+
+        fetched, opposite = fetcher[fireteam]
+        fetched = [int(i) for i in fetched.split()]
+        opposite = [int(i) for i in opposite.split()]
+
         if user.id == author_id:
             logger.debug(f"{user} tested the system and tried to enroll to their LFG")
             return await response.send_message("Ошибка: нельзя записаться к самому себе.", ephemeral=True)
 
-        if eval(f"'{user.id}' in '{OPPOSITE[fireteam]}'"):
+        if user.id in opposite:
             logger.debug(f"{user} tried to enroll to both fireteams in activity with ID {response_id}")
             return await response.send_message("Ошибка: нельзя записаться сразу в оба состава.", ephemeral=True)
 
-        if eval(f"len({fireteam}) >= 5"):
+        if len(fetched) >= 5:
             logger.debug(f"{user} tried to enroll to full {fireteam} fireteam in activity with ID {response_id}")
-            return await response.send_message("Ошибка: все составы уже заполнены(", ephemeral=True)
+            return await response.send_message("Ошибка: состав уже заполнен(", ephemeral=True)
 
-        if eval(f"'{user.id}' in '{fireteam}'"):
-            logger.debug(f"{user} excluded to {fireteam} fireteam, activity with ID {response_id}")
-            new = eval(fireteam).split()
-            print(new)
-            new.remove(str(user.id))
+        if user.id in fetched:
+            logger.debug(f"{user} excluded from {fireteam} fireteam, activity with ID {response_id}")
+            fetched.remove(user.id)
         else:
-            logger.debug(f"{user} enrolled from {fireteam} fireteam, activity with ID {response_id}")
-            new = eval(fireteam).split()
-            print(new)
-            new.append(str(user.id))
+            logger.debug(f"{user} enrolled to {fireteam} fireteam, activity with ID {response_id}")
+            fetched.append(user.id)
 
-        print(new)
-        new = ' '.join(new)
-        exec(f"{fireteam} = new")
-        db_handler.cursor.execute(QUERIES["update"], (author_id, time, main, reserve, response_id))
+        fetched = " ".join(map(str, fetched))
+        value = []
+
+        if fireteam == "main":
+            t = (author_id, time, fetched, reserve, response_id)
+            index = 1
+            name = ":blue_square:  | Основной состав"
+            value.append(author_id)
+        else:
+            t = (author_id, time, main, fetched, response_id)
+            index = 2
+            name = ":green_square:  | Резервный состав"
+
+        value += fetched
+        value = [await bot.fetch_user(int(user_id)) for user_id in fetched]
+
+        db_handler.cursor.execute(QUERIES["update"], t)
         db_handler.commit()
         await response.send_message(f"*\\*{choice(LOL)}\\**", delete_after=5)
 
-        new_main = [await bot.fetch_user(author_id)] + [await bot.fetch_user(int(user_id)) for user_id in main.split()]
-        new_reverse = [await bot.fetch_user(int(user_id)) for user_id in reserve.split()]
-
-        embed = interaction.message.embeds[0]
-        embed.set_field_at(1, name=":blue_square:  | Основной состав", inline=False, value=numbered_list(new_main))
-        embed.set_field_at(2, name=":green_square:  | Резервный состав", inline=False, value=numbered_list(new_reverse))
+        embed = interaction.message.embeds[0]._fields
+        embed.set_field_at(index, name=name, inline=False, value=numbered_list(value))
         await interaction.message.edit(embed=embed)
 
     return enroll
