@@ -1,48 +1,41 @@
-from importlib.resources import path
-from logging import getLogger
-from sqlite3 import Connection, Cursor, connect
+import importlib.resources as ilr
+import logging as log
+import sqlite3 as sql
 
-from discord import Bot, Cog
+import discord
 
 import resources
 
 
-logger = getLogger(__name__)
+logger = log.getLogger(__name__)
 
-
-with path(resources, "database.sqlite3") as p:
+with ilr.path(resources, "database.sqlite3") as p:
     PATH_TO_DATABASE = p
 
 
-class DatabaseHandler(Cog):
+class DatabaseHandler(discord.Cog):
     """Entry point to databases for bots.
 
     Creates a connection and a cursor to the local database.
     """
-    bot: Bot
-    __connection: Connection
-    __cursor: Cursor
+    bot: discord.Bot
+    __connection: sql.Connection
+    __cursor: sql.Cursor
 
-    def __init__(self, bot: Bot):
+    def __init__(self, bot: discord.Bot):
         self.bot = bot
-        self.__connection = connect(PATH_TO_DATABASE)
+        self.__connection = sql.connect(PATH_TO_DATABASE)
         self.__cursor = self.__connection.cursor()
 
-    def commit(self):
-        """
-        Shortcut to connection.commit()
-        """
-        self.__connection.commit()
+    @property
+    def con(self):
+        return self.__connection
 
     @property
     def cursor(self):
         return self.__cursor
 
-    @property
-    def connection(self):
-        return self.__connection
 
-
-def setup(bot: Bot):
+def setup(bot: discord.Bot):
     bot.add_cog(DatabaseHandler(bot))
     logger.info("Database handler cog was added to your bot")

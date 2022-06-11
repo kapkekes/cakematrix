@@ -1,5 +1,5 @@
 select
-    author_id, main_fireteam, reserve_fireteam
+    author_id, main, reserve
 from
     lfg_posts
 where

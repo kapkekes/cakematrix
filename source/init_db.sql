@@ -6,8 +6,8 @@ create table lfg_posts
     activity         text    not null,
     author_id        integer not null,
     timestamp        text    not null,
-    main_fireteam    text,
-    reserve_fireteam text
+    main             blob,
+    reserve          blob
 );
 
 create unique index table_name_response_id_uindex

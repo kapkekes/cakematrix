@@ -9,7 +9,7 @@ from secret import TOKEN
 import config
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     with path(config, "logging.yaml") as p, open(p, "r") as f:
         dictConfig(full_load(f.read()))
 

@@ -1,8 +1,11 @@
-from importlib.resources import path, contents, read_text
+import importlib.resources as ilr
+import pickle
+
 from logging import getLogger
 from random import choice
+from typing import List
 
-from discord import ApplicationContext, Bot, Cog, Interaction, Option, slash_command
+import discord
 
 from resources.activities import optionChoices
 from source.exceptions import CogNotFoundError
@@ -17,7 +20,6 @@ import resources
 
 logger = getLogger(__name__)
 
-
 DECORATORS = {
     "create": {
         "guild_ids": GUILDS,
@@ -26,21 +28,21 @@ DECORATORS = {
         "name_localizations": {"ru": "собрать"},
         "description_localizations": {"ru": "создать сбор"},
         "options": [
-            Option(
+            discord.Option(
                 str,
                 name="raid", choices=optionChoices,
                 description="the target raid",
                 name_localizations={"ru": "рейд"},
                 description_localizations={"ru": "рейд, в который ведётся сбор"}
             ),
-            Option(
+            discord.Option(
                 str,
                 name="time",
                 description="the start time (in DD.MM-HH:MM format)",
                 name_localizations={"ru": "время"},
                 description_localizations={"ru": "время начала (в формате ДД.ММ-ЧЧ:ММ)"}
             ),
-            Option(
+            discord.Option(
                 str,
                 name="note", default="отсутствует",
                 description="the note, which will be written in the post (\\n for a new line)",
@@ -51,35 +53,35 @@ DECORATORS = {
     }
 }
 QUERIES = {
-    query[:-4]: ' '.join(read_text(source.queries, query).split())
-    for query in [file for file in contents(source.queries) if ".sql" in file.lower()]
-}
-OPPOSITE = {
-    "main": "reserve",
-    "reserve": "main"
+    query[:-4]: ' '.join(ilr.read_text(source.queries, query).split())
+    for query in [file for file in ilr.contents(source.queries) if ".sql" in file.lower()]
 }
 LOL = ["пух", "жмых", "ебуньк", "ту-дуц"]
 
-with path(resources, "database.sqlite3") as p:
+with ilr.path(resources, "database.sqlite3") as p:
     PATH_TO_DATABASE = p
 
 
-class LFG(Cog):
+def dumps_empty() -> bytes:
+    return pickle.dumps(list())
+
+
+class LFG(discord.Cog):
     """Cog with looking-for-group functionality.
 
     Adds several slash commands for creating and managing LFG posts.
     """
-    bot: Bot
+    bot: discord.Bot
     db_handler: DatabaseHandler
 
-    def __init__(self, bot: Bot):
+    def __init__(self, bot: discord.Bot):
         self.bot = bot
 
         # Sadly, but the return type of the get_cog function is hardcoded as Cog
         self.db_handler = bot.get_cog("DatabaseHandler")  # type: ignore
 
-    @slash_command(**DECORATORS["create"])
-    async def create(self, context: ApplicationContext, raid, time, note):
+    @discord.slash_command(**DECORATORS["create"])
+    async def create(self, context: discord.ApplicationContext, raid, time, note):
         author = context.user
 
         try:
@@ -88,7 +90,7 @@ class LFG(Cog):
             logger.debug(f"{author} used /lfg command, but put incorrect format time")
             return await context.respond("Ошибка: время имеет некорректный формат.", ephemeral=True)
 
-        response: Interaction = await context.respond("Создаю сбор...")
+        response: discord.Interaction = await context.respond("Создаю сбор...")
 
         await response.edit_original_message(
             content="",
@@ -96,8 +98,11 @@ class LFG(Cog):
             view=build_enroll_view(response.id, pass_to_enroll(self))
         )
 
-        self.db_handler.cursor.execute(QUERIES["create"], (response.id, raid, author.id, timestamp))
-        self.db_handler.commit()
+        self.db_handler.con.execute(
+            QUERIES["enroll_create"],
+            (response.id, raid, author.id, timestamp, dumps_empty(), dumps_empty())
+        )
+        self.db_handler.con.commit()
 
         logger.debug(f"{author} created a LFG post to {raid} on {timestamp}")
 
@@ -106,28 +111,31 @@ def pass_to_enroll(cog: LFG):
     db_handler = cog.db_handler
     bot = cog.bot
 
-    async def enroll(interaction: Interaction):
+    async def enroll(interaction: discord.Interaction):
         fireteam, response_id = interaction.custom_id.split('_')
         response_id = int(response_id)
 
-        db_handler.cursor.execute(QUERIES["fetch"], (response_id,))
-        user = interaction.user
-        response = interaction.response
+        db_handler.cursor.execute(QUERIES["enroll_fetch"], (response_id,))
+        user, response = interaction.user, interaction.response
 
         if (result := db_handler.cursor.fetchone()) is None:
             logger.debug(f"{user} pushed strange button to enroll")
             return await response.send_message("Ошибка: записи... не существует¿", ephemeral=True)
 
-        (_, _, author_id, time, main, reserve) = result
+        author_id: int
+        fetched_b: bytes
+        opposite_b: bytes
 
-        fetcher = {
-            "main": (main, reserve),
-            "reserve": (reserve, main)
-        }
+        if fireteam == "main":
+            author_id, fetched_b, opposite_b = result
+        elif fireteam == "reserve":
+            author_id, opposite_b, fetched_b = result
+        else:
+            logger.debug(f"{user} pushed strange button to enroll")
+            return await response.send_message("Ошибка: выбрана несуществующая группа¿", ephemeral=True)
 
-        fetched, opposite = fetcher[fireteam]
-        fetched = [int(i) for i in fetched.split()]
-        opposite = [int(i) for i in opposite.split()]
+        fetched: List[int] = pickle.loads(fetched_b)
+        opposite: List[int] = pickle.loads(opposite_b)
 
         if user.id == author_id:
             logger.debug(f"{user} tested the system and tried to enroll to their LFG")
@@ -148,34 +156,31 @@ def pass_to_enroll(cog: LFG):
             logger.debug(f"{user} enrolled to {fireteam} fireteam, activity with ID {response_id}")
             fetched.append(user.id)
 
-        fetched = " ".join(map(str, fetched))
-        value = []
+        fetched_b = pickle.dumps(fetched)
+        opposite_b = pickle.dumps(opposite)
 
         if fireteam == "main":
-            t = (author_id, time, fetched, reserve, response_id)
+            write_to_database = (fetched_b, opposite_b, response_id)
             index = 1
-            name = ":blue_square:  | Основной состав"
-            value.append(author_id)
+            fetched.insert(0, author_id)
         else:
-            t = (author_id, time, main, fetched, response_id)
+            write_to_database = (opposite_b, fetched_b, response_id)
             index = 2
-            name = ":green_square:  | Резервный состав"
 
-        value += fetched
         value = [await bot.fetch_user(int(user_id)) for user_id in fetched]
 
-        db_handler.cursor.execute(QUERIES["update"], t)
-        db_handler.commit()
+        db_handler.con.execute(QUERIES["enroll_update"], write_to_database)
+        db_handler.con.commit()
         await response.send_message(f"*\\*{choice(LOL)}\\**", delete_after=5)
 
-        embed = interaction.message.embeds[0]._fields
-        embed.set_field_at(index, name=name, inline=False, value=numbered_list(value))
+        embed = interaction.message.embeds[0]
+        embed._fields[index].value = numbered_list(value)
         await interaction.message.edit(embed=embed)
 
     return enroll
 
 
-def setup(bot: Bot):
+def setup(bot: discord.Bot):
     if bot.get_cog("DatabaseHandler") is None:
         raise CogNotFoundError("LFG cog can't be added without Database cog; ensure, that you already added it.")
 

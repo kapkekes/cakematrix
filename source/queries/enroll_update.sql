@@ -1,6 +1,6 @@
 update
     lfg_posts
 set
-    author_id = ?, main_fireteam = ?, reserve_fireteam = ?
+    main = ?, reserve = ?
 where
     response_id = ?
