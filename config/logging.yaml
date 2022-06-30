@@ -2,17 +2,17 @@ version: 1
 formatters:
     black_white:
         class: logging.Formatter
-        format: '[{levelname:^9}] - ({name:^30}), {asctime} - {message}'
+        format: '[{levelname:^9}], {asctime} - {message}'
         datefmt: '%Y.%m.%d, %H:%M:%S'
         style: '{'
     colorful_terminal:
         class: source.custom_logging.TerminalColorfulFormatter
-        format: '[{levelname:^9}] - ({name:^30}), {asctime} - {message}'
+        format: '[{levelname:^9}], {asctime} - {message}'
         datefmt: '%Y.%m.%d, %H:%M:%S'
         style: '{'
     colorful_discord:
         class: source.custom_logging.DiscordColorfulFormatter
-        format: '[ {levelname} ] - ( {name} ), {asctime} - {message}'
+        format: '[ {levelname} ], {asctime} - {message}'
         datefmt: '%Y.%m.%d, %H:%M:%S'
         style: '{'
 handlers:

@@ -1,5 +1,5 @@
 from logging import Handler, Formatter, LogRecord
-from typing import Any, Dict, NoReturn
+from typing import Any, Dict
 
 from requests import post
 from termcolor import colored
@@ -42,16 +42,8 @@ class WebhookHandler(Handler):
         super().__init__(*args, **kwargs)
         self.webhook_url = webhook_url
 
-    def format(self, record: LogRecord) -> dict[str, Any]:
+    def format(self, record: LogRecord) -> Dict[str, Any]:
         return {"content": super().format(record)}
 
     def emit(self, record: LogRecord) -> None:
         post(self.webhook_url, self.format(record))
-
-
-def addition(a, b):
-    return a + b
-
-
-if __name__ == '__main__':
-    print(addition('Привет, ', 'Коля!'))
