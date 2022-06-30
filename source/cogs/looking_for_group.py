@@ -1,17 +1,19 @@
+import datetime
 import importlib.resources as ilr
-import pickle
+import pickle as pkl
 
 from logging import getLogger
 from random import choice
-from typing import List
+from typing import List, Tuple
 
 import discord
+import discord.ext.tasks as tasks
 
 from resources.activities import optionChoices
 from source.exceptions import CogNotFoundError
 from source.cogs.database_handler import DatabaseHandler
-from utilities.conventers import str_to_datetime
-from builders import build_embed, build_enroll_view, numbered_list
+from utilities import str_to_datetime, datetime_to_str
+from builders import build_lfg_embed, build_enroll_view, numbered_list, notify_main, notify_reserve
 from secret import GUILDS
 
 import source.queries
@@ -21,7 +23,7 @@ import resources
 logger = getLogger(__name__)
 
 DECORATORS = {
-    "create": {
+    "enroll_create": {
         "guild_ids": GUILDS,
         "name": "lfg",
         "description": "create a LFG post",
@@ -56,14 +58,18 @@ QUERIES = {
     query[:-4]: ' '.join(ilr.read_text(source.queries, query).split())
     for query in [file for file in ilr.contents(source.queries) if ".sql" in file.lower()]
 }
-LOL = ["пух", "жмых", "ебуньк", "ту-дуц"]
+REACTIONS = [
+    "пух",
+    "жмых",
+    "ту-дуц",
+]
 
 with ilr.path(resources, "database.sqlite3") as p:
     PATH_TO_DATABASE = p
 
 
 def dumps_empty() -> bytes:
-    return pickle.dumps(list())
+    return pkl.dumps(list())
 
 
 class LFG(discord.Cog):
@@ -80,7 +86,9 @@ class LFG(discord.Cog):
         # Sadly, but the return type of the get_cog function is hardcoded as Cog
         self.db_handler = bot.get_cog("DatabaseHandler")  # type: ignore
 
-    @discord.slash_command(**DECORATORS["create"])
+        self.notify.start()
+
+    @discord.slash_command(**DECORATORS["enroll_create"])
     async def create(self, context: discord.ApplicationContext, raid, time, note):
         author = context.user
 
@@ -94,7 +102,7 @@ class LFG(discord.Cog):
 
         await response.edit_original_message(
             content="",
-            embed=build_embed(raid, author, timestamp, note, response.id),
+            embed=build_lfg_embed(raid, author, timestamp, note, response.id),
             view=build_enroll_view(response.id, pass_to_enroll(self))
         )
 
@@ -105,6 +113,36 @@ class LFG(discord.Cog):
         self.db_handler.con.commit()
 
         logger.debug(f"{author} created a LFG post to {raid} on {timestamp}")
+
+    @tasks.loop(seconds=60)
+    async def notify(self):
+        self.db_handler.cursor.execute(QUERIES["notify"], (datetime_to_str(datetime.datetime.now()),))
+
+        raw_posts: List[Tuple[int, int, bytes, bytes]] = list(map(tuple, self.db_handler.cursor.fetchall()))
+
+        posts: List[Tuple[int, List[int], List[int]]] = [
+            (response_id, [] + pkl.loads(main), pkl.loads(reserve))
+            for response_id, author_id, main, reserve in raw_posts
+        ]
+
+        del raw_posts
+
+        for response_id, main, reserve in posts:
+            embed = self.bot.get_message(response_id).embeds[0]
+
+            embed = notify_main(embed)
+            for user_id in main:
+                user = await self.bot.fetch_user(user_id)
+
+                if user.can_send(discord.Embed):
+                    await user.send(embed=embed)
+
+            embed = notify_reserve(embed)
+            for user_id in reserve:
+                user = await self.bot.fetch_user(user_id)
+
+                if user.can_send(discord.Embed):
+                    await user.send(embed=embed)
 
 
 def pass_to_enroll(cog: LFG):
@@ -134,8 +172,8 @@ def pass_to_enroll(cog: LFG):
             logger.debug(f"{user} pushed strange button to enroll")
             return await response.send_message("Ошибка: выбрана несуществующая группа¿", ephemeral=True)
 
-        fetched: List[int] = pickle.loads(fetched_b)
-        opposite: List[int] = pickle.loads(opposite_b)
+        fetched: List[int] = pkl.loads(fetched_b)
+        opposite: List[int] = pkl.loads(opposite_b)
 
         if user.id == author_id:
             logger.debug(f"{user} tested the system and tried to enroll to their LFG")
@@ -156,8 +194,8 @@ def pass_to_enroll(cog: LFG):
             logger.debug(f"{user} enrolled to {fireteam} fireteam, activity with ID {response_id}")
             fetched.append(user.id)
 
-        fetched_b = pickle.dumps(fetched)
-        opposite_b = pickle.dumps(opposite)
+        fetched_b = pkl.dumps(fetched)
+        opposite_b = pkl.dumps(opposite)
 
         if fireteam == "main":
             write_to_database = (fetched_b, opposite_b, response_id)
@@ -171,7 +209,7 @@ def pass_to_enroll(cog: LFG):
 
         db_handler.con.execute(QUERIES["enroll_update"], write_to_database)
         db_handler.con.commit()
-        await response.send_message(f"*\\*{choice(LOL)}\\**", delete_after=5)
+        await response.send_message(f"*\\*{choice(REACTIONS)}\\**", delete_after=5)
 
         embed = interaction.message.embeds[0]
         embed._fields[index].value = numbered_list(value)
