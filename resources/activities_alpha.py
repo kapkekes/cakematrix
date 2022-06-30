@@ -4,20 +4,22 @@ from typing import Dict, NamedTuple
 from discord import OptionChoice
 
 
-class Activities(StrEnum):
-    last_wish = 'lw'
-    garden = 'gos'
-    deep_stone = 'dsc'
-    vault = 'vog'
-    vault_master = 'vog-master'
-    vow = 'votd'
-    vow_master = 'votd-master'
-
-
 class Profile(NamedTuple):
     name: str
     power: int
     thumbnail_url: str
+
+
+class Activities(StrEnum):
+    # raids
+
+    last_wish = 'lw'             # the Last Wish
+    garden = 'gos'               # the Garden of Salvation
+    deep_stone = 'dsc'           # the Deep Stone Crypt
+    vault = 'vog'                # the Vault of Glass
+    vault_master = 'vog-master'  # the Vault of Glass, master difficulty
+    vow = 'votd'                 # the Vow of the Disciple
+    vow_master = 'votd-master'   # the Vow of the Disciple, master difficulty
 
 
 profiles: Dict[Activities, Profile] = {
@@ -58,4 +60,4 @@ profiles: Dict[Activities, Profile] = {
     )
 }
 
-option_choices = [OptionChoice(information.name, value) for value, information in profiles_new.items()]
+option_choices = [OptionChoice(information.name, value) for value, information in profiles.items()]
