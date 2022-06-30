@@ -16,7 +16,7 @@ def lines(string: str) -> str:
     return string.replace("\\n", "\n")
 
 
-def build_embed(raid_id: str, author: User, time: datetime, note: str, response_id: int) -> Embed:
+def build_lfg_embed(raid_id: str, author: User, time: datetime, note: str, response_id: int) -> Embed:
     r = profiles[raid_id]
     return Embed.from_dict({
         "type": "rich",
@@ -50,3 +50,11 @@ def build_embed(raid_id: str, author: User, time: datetime, note: str, response_
             "text": f"ID: {response_id}"
         },
     })
+
+
+def notify_main(embed: Embed) -> Embed:
+    return embed.set_author(name="Через 15 минут вы отправитесь в")
+
+
+def notify_reserve(embed: Embed) -> Embed:
+    return embed.set_author(name="Через 15 минут вы можете отправиться в")
