@@ -26,7 +26,6 @@ class Post:
     reserve: List[User]
 
     note: str
-    last_embed: Embed
 
     _connection: Connection | None = None
 
@@ -36,16 +35,18 @@ class Post:
         self.time = time
         self.note = note
 
+    @property
+    def embed(self) -> Embed:
+        return self.message.embeds[0]
+
     async def create(self, response: Interaction, callback: Callable[[Interaction], Coroutine]):
         self.message = response.message
         self.main = []
         self.reserve = []
 
-        self.last_embed = builders.create_embed(self)
-
         await self.message.edit(
             content="",
-            embed=self.last_embed,
+            embed=builders.create_embed(self),
             view=builders.create_enroll_view(response.message.id, callback)
         )
 
@@ -65,30 +66,51 @@ class Post:
         if self.author == new_author:
             raise ValueError("this user is already the author of the post")
 
-        emb = self.message.embeds[0]
+        embed = self.embed
 
         if new_author in self.main:
             self.main.remove(new_author)
             self._connection.execute(queries.update.main, (self._dump_main()))
-            emb.set_field_at(
+            embed.set_field_at(
                 index=1, name=":blue_square:  | Основной состав", inline=False,
                 value=builders.numbered_list([self.author] + self.main)
             )
         elif new_author in self.reserve:
             self.reserve.remove(new_author)
             self._connection.execute(queries.update.main, (self._dump_main()))
-            emb.set_field_at(
+            embed.set_field_at(
                 index=2, name=":green_square:  | Резервный состав", inline=False,
                 value=builders.numbered_list(self.reserve)
             )
 
         self.author = new_author
-        self._connection.execute(queries.update.author_id, (self.author.id,))
+        self._connection.execute(
+            queries.update.author_id, (self.author.id,)
+        )
         self._connection.commit()
 
-    # TODO: create time setter
+        await self.message.edit(
+            embed=embed.set_author(
+                name=f"{self.author.display_name} собирает вас в"
+            )
+        )
+
     async def set_time(self, new_time: datetime):
-        ...
+        self.time = new_time
+
+        self._connection.execute(
+            queries.update.unix_time, (self.time.timestamp(),)
+        )
+        self._connection.commit()
+
+        embed = self.embed
+        embed.description = f"Время проведения: **{self.time:%d.%m.%Y} в {self.time:%H:%M} (UTC+3)**."
+
+        await self.message.edit(
+            embed=self.embed.set_author(
+                name=f"{self.author.display_name} собирает вас в"
+            )
+        )
 
     # TODO: create note setter
     async def set_note(self, new_note: str):

@@ -38,23 +38,6 @@ def create_embed(post: Post) -> Embed:
     )
 
 
-def update_author(post: Post) -> Embed:
-    return post.message.embeds[0].set_author(
-        name=f"{post.author.display_name} собирает вас в"
-    )
-
-
-def update_time(post: Post) -> Embed:
-    e = post.message.embeds[0]
-    e.description = f"Время проведения: **{post.time:%d.%m.%Y} в {post.time:%H:%M} (UTC+3)**."
-
-    return e
-
-
-def update_note(post: Post) -> Embed:
-    ...
-
-
 def notify_main(embed: Embed) -> Embed:
     return embed.set_author(name="Через 15 минут вы отправитесь в")
 
