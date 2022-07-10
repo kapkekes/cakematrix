@@ -15,6 +15,14 @@ import queries
 Roster = Tuple[User, List[User], List[User]]
 
 
+class AlreadyEnrolledError(Exception):
+    pass
+
+
+class FullFireteamError(Exception):
+    pass
+
+
 class Post:
     message: Message
     activity: str
@@ -34,10 +42,6 @@ class Post:
         self.author = author
         self.time = time
         self.note = note
-
-    @property
-    def embed(self) -> Embed:
-        return self.message.embeds[0]
 
     async def create(self, response: Interaction, callback: Callable[[Interaction], Coroutine]):
         self.message = response.message
@@ -112,16 +116,64 @@ class Post:
             )
         )
 
-    # TODO: create note setter
     async def set_note(self, new_note: str):
-        ...
+        self.note = new_note
 
-    # TODO: create fireteam management functions
+        await self.message.edit(
+            embed=self.embed.set_field_at(
+                index=0, name=":ledger: | Заметка от лидера", inline=False, value=builders.lines(self.note)
+            )
+        )
+
     async def alter_to_main(self, user: User):
-        ...
+        if self.author == user:
+            raise ValueError("author can't enroll to their post")
+
+        if user in self.reserve:
+            raise AlreadyEnrolledError("this user has already enrolled to reserve fireteam")
+
+        if user in self.main:
+            self.main.remove(user)
+        elif len(self.main) >= 5:
+            raise FullFireteamError("main fireteam is already full")
+        else:
+            self.main.append(user)
+
+        self._connection.execute(
+            queries.update.main, (self._dump_main(),)
+        )
+        self._connection.commit()
+        await self.message.edit(
+            embed=self.embed.set_field_at(
+                index=1, name=":blue_square:  | Основной состав", inline=False,
+                value=builders.numbered_list([self.author] + self.main)
+            )
+        )
 
     async def alter_to_reserve(self, user: User):
-        ...
+        if self.author == user:
+            raise ValueError("author can't enroll to their post")
+
+        if user in self.main:
+            raise AlreadyEnrolledError("this user has already enrolled to main fireteam")
+
+        if user in self.reserve:
+            self.reserve.remove(user)
+        elif len(self.reserve) >= 5:
+            raise FullFireteamError("reserve fireteam is already full")
+        else:
+            self.reserve.append(user)
+
+        self._connection.execute(
+            queries.update.reserve, (self._dump_reserve(),)
+        )
+        self._connection.commit()
+        await self.message.edit(
+            embed=self.embed.set_field_at(
+                index=2, name=":green_square:  | Резервный состав", inline=False,
+                value=builders.numbered_list(self.reserve)
+            )
+        )
 
     async def notify_users(self) -> List[User]:
         notifications = {
@@ -159,6 +211,10 @@ class Post:
     def _dump_reserve(self) -> bytes:
         return pkl.dumps([user.id for user in self.reserve])
 
+    @property
+    def embed(self) -> Embed:
+        return self.message.embeds[0]
+
     @staticmethod
     def _indentify_users(users: List[User], author_id: int, main_id: List[int], reserve_id: List[int]) -> Roster:
         for candidate in users:
@@ -178,8 +234,7 @@ class Post:
         cursor = cls._connection.cursor()
 
         cursor.execute(queries.fetch_post, {"message_id": message_id})
-        record: Row = cursor.fetchone()
-        if record is None:
+        if record := cursor.fetchone() is None:
             raise KeyError("there are no post with the such message ID")
 
         return record
