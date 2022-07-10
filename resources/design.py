@@ -6,3 +6,9 @@ colors = {
     'dares':       0x0D6893,
     'cancel':      0x7E7E7E,
 }
+
+reactions = {
+    "пух",
+    "жмых",
+    "ту-дуц",
+}

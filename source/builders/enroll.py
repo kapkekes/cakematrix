@@ -21,7 +21,7 @@ class EnrollButton(Button):
         self.callback = callback
 
 
-def build_enroll_view(response_id: int, callback: Callable[[Interaction], Coroutine]) -> View:
+def create_enroll_view(response_id: int, callback: Callable[[Interaction], Coroutine]) -> View:
     return View(
         EnrollButton("main", response_id, callback), EnrollButton("reserve", response_id, callback), timeout=None
     )

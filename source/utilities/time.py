@@ -5,7 +5,7 @@ from resources import timezone, input_time_format
 
 def str_to_datetime(time_string: str) -> datetime:
     stamp = datetime.now(tz=timezone)
-    time = datetime.strptime(time_string, input_time_format).replace(year=stamp.year)
+    time = datetime.strptime(time_string, input_time_format).replace(year=stamp.year, tzinfo=timezone)
 
     if stamp > time:
         time = time.replace()
@@ -21,6 +21,6 @@ def closest_future() -> datetime:
     stamp = datetime.now().replace(microsecond=0)
 
     if stamp.second > 0:
-        stamp += timedelta(seconds=60 - stamp.second)
+        stamp += timedelta(seconds=(60 - stamp.second))
 
     return stamp
