@@ -108,7 +108,7 @@ class LFG(discord.Cog):
 
 
 def setup(bot: discord.Bot):
-    if (db_handler := bot.get_cog("DatabaseHandler")) is None:  # type: ignore
+    if (db_handler := bot.get_cog("DatabaseHandler")) is None:
         return logger.error("LFG cog can't find a Database handler")
 
     Post.set_connection(db_handler.con)  # type: ignore

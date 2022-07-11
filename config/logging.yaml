@@ -34,7 +34,7 @@ handlers:
 loggers:
     source.cogs:
         level: DEBUG
-        handlers: [file, terminal, discord]
+        handlers: [file, terminal]
     discord:
         level: INFO
-        handlers: [file, terminal, discord]
+        handlers: [file, terminal]

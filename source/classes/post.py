@@ -1,4 +1,5 @@
 from datetime import datetime
+from random import choice
 from sqlite3 import Connection, Row
 from typing import List, Callable, Coroutine, Tuple
 
@@ -6,7 +7,7 @@ import pickle as pkl
 
 from discord import Message, User, Interaction, Embed, InteractionMessage
 
-from resources import timezone
+from resources import timezone, emojis
 
 import builders
 import queries
@@ -43,6 +44,15 @@ class Post:
         self.time = time
         self.note = note
 
+    def mention_string(self):
+        res = choice(emojis)
+        itr = [self.author] + self.main + self.reserve
+
+        for user in itr:
+            res += f" {user.mention} {choice(emojis)}"
+
+        return res
+
     async def create(
             self,
             response: Interaction,
@@ -54,7 +64,7 @@ class Post:
         self.reserve = []
 
         await self.message.edit(
-            content="",
+            content=self.mention_string(),
             embed=builders.create_embed(self),
             view=builders.create_enrollment_view(self.message.id, main_callback, reserve_callback)
         )
@@ -94,11 +104,12 @@ class Post:
 
         self.author = new_author
         self._connection.execute(
-            queries.update.author_id, (self.author.id,)
+            queries.update.author_id, (self.author.id, self.message.id)
         )
         self._connection.commit()
 
         await self.message.edit(
+            content=self.mention_string(),
             embed=embed.set_author(
                 name=f"{self.author.display_name} собирает вас в"
             )
@@ -108,7 +119,7 @@ class Post:
         self.time = new_time
 
         self._connection.execute(
-            queries.update.unix_time, (self.time.timestamp(),)
+            queries.update.unix_time, (self.time.timestamp(), self.message.id)
         )
         self._connection.commit()
 
@@ -145,10 +156,11 @@ class Post:
             self.main.append(user)
 
         self._connection.execute(
-            queries.update.main, (self._dump_main(),)
+            queries.update.main, (self._dump_main(), self.message.id)
         )
         self._connection.commit()
         await self.message.edit(
+            content=self.mention_string(),
             embed=self.embed.set_field_at(
                 index=1, name=":blue_square:  | Основной состав", inline=False,
                 value=builders.numbered_list([self.author] + self.main)
@@ -170,10 +182,11 @@ class Post:
             self.reserve.append(user)
 
         self._connection.execute(
-            queries.update.reserve, (self._dump_reserve(),)
+            queries.update.reserve, (self._dump_reserve(), self.message.id)
         )
         self._connection.commit()
         await self.message.edit(
+            content=self.mention_string(),
             embed=self.embed.set_field_at(
                 index=2, name=":green_square:  | Резервный состав", inline=False,
                 value=builders.numbered_list(self.reserve)
@@ -230,7 +243,7 @@ class Post:
             raise ValueError("can't identify the author of the post")
 
         def filter_and_sort(roster: List[int]) -> List[User]:
-            return sorted(filter(lambda u: u in roster, users), key=lambda u: roster.index(u))
+            return sorted(filter(lambda u: u.id in roster, users), key=lambda u: roster.index(u.id))
 
         return author, filter_and_sort(main_id), filter_and_sort(reserve_id)
 
@@ -258,7 +271,7 @@ class Post:
         )
 
         post = cls(
-            record["activity"], author, datetime.fromtimestamp(record["activity"], timezone)
+            record["activity"], author, datetime.fromtimestamp(record["unix_time"], timezone)
         )
 
         post.message = message

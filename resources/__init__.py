@@ -1,6 +1,6 @@
-__all__ = ('colors', 'reactions', 'timezone', 'input_time_format', 'database_time_format')
+__all__ = ('colors', 'reactions', 'emojis', 'timezone', 'input_time_format', 'database_time_format')
 
 
 from .activities import profiles, optionChoices
 from .constants import timezone, input_time_format, database_time_format
-from .design import colors, reactions
+from .design import colors, reactions, emojis
