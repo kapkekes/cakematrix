@@ -4,7 +4,7 @@ from typing import List, Callable, Coroutine, Tuple
 
 import pickle as pkl
 
-from discord import Message, User, Interaction, Embed
+from discord import Message, User, Interaction, Embed, InteractionMessage
 
 from resources import timezone
 
@@ -24,7 +24,7 @@ class FullFireteamError(Exception):
 
 
 class Post:
-    message: Message
+    message: Message | InteractionMessage
     activity: str
 
     author: User
@@ -43,15 +43,20 @@ class Post:
         self.time = time
         self.note = note
 
-    async def create(self, response: Interaction, callback: Callable[[Interaction], Coroutine]):
-        self.message = response.message
+    async def create(
+            self,
+            response: Interaction,
+            main_callback: Callable[[Interaction], Coroutine],
+            reserve_callback: Callable[[Interaction], Coroutine]
+    ):
+        self.message = await response.original_message()
         self.main = []
         self.reserve = []
 
         await self.message.edit(
             content="",
             embed=builders.create_embed(self),
-            view=builders.create_enroll_view(response.message.id, callback)
+            view=builders.create_enrollment_view(self.message.id, main_callback, reserve_callback)
         )
 
         self._connection.execute(queries.create_post, {
@@ -213,7 +218,7 @@ class Post:
 
     @property
     def embed(self) -> Embed:
-        return self.message.embeds[0]
+        return self.message.embeds[0].copy()
 
     @staticmethod
     def _indentify_users(users: List[User], author_id: int, main_id: List[int], reserve_id: List[int]) -> Roster:
@@ -233,8 +238,9 @@ class Post:
     def fetch_record(cls, message_id: int) -> Row:
         cursor = cls._connection.cursor()
 
-        cursor.execute(queries.fetch_post, {"message_id": message_id})
-        if record := cursor.fetchone() is None:
+        cursor.execute(queries.fetch_post, (message_id, ))
+        record = cursor.fetchone()
+        if record is None:
             raise KeyError("there are no post with the such message ID")
 
         return record

@@ -1,6 +1,7 @@
 import importlib.resources as ilr
 import logging as log
 import sqlite3 as sql
+from sqlite3 import Row
 
 import discord
 
@@ -16,24 +17,19 @@ with ilr.path(resources, "database.sqlite3") as p:
 class DatabaseHandler(discord.Cog):
     """Entry point to databases for bots.
 
-    Creates a connection and a cursor to the local database.
+    Creates a connection and to the local database.
     """
     bot: discord.Bot
     __connection: sql.Connection
-    __cursor: sql.Cursor
 
     def __init__(self, bot: discord.Bot):
         self.bot = bot
         self.__connection = sql.connect(PATH_TO_DATABASE)
-        self.__cursor = self.__connection.cursor()
+        self.__connection.row_factory = Row
 
     @property
     def con(self):
         return self.__connection
-
-    @property
-    def cursor(self):
-        return self.__cursor
 
 
 def setup(bot: discord.Bot):

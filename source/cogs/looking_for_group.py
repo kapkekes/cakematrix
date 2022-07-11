@@ -1,25 +1,16 @@
-import datetime as dt
 import importlib.resources as ilr
-import pickle as pkl
-import sqlite3 as sql
-from dataclasses import dataclass
 
 from logging import getLogger
 from random import choice
-from typing import List, Tuple, Callable, Dict
+from typing import Callable, Dict
 
 import discord
-import discord.ext.tasks as tasks
 
-from resources import timezone
+from source.classes.post import Post, AlreadyEnrolledError, FullFireteamError
 from resources.activities import optionChoices
-from source.exceptions import CogNotFoundError
-from source.cogs.database_handler import DatabaseHandler
-from utilities import str_to_datetime, datetime_to_str
-from builders import create_embed, create_enroll_view, numbered_list, notify_main, notify_reserve
+from utilities import str_to_datetime
 from secret import GUILDS
 
-import source.queries as queries
 import resources
 
 
@@ -48,14 +39,6 @@ DECORATORS = {
 }
 
 
-
-
-
-def parse_custom_id(custom_id: str) -> Tuple[str, int]:
-    a, b = custom_id.split("_")
-    return a, int(b)
-
-
 with ilr.path(resources, "database.sqlite3") as p:
     PATH_TO_DATABASE = p
 
@@ -70,74 +53,40 @@ class LFG(discord.Cog):
 
     def __init__(self, bot: discord.Bot):
         self.bot = bot
+        self._functions = {}
 
-        async def enroll(interaction: discord.Interaction):
-            db_handler: DatabaseHandler
+        def callback_builder(group: str):
+            async def enroll(interaction: discord.Interaction):
+                record = Post.fetch_record(int(interaction.custom_id.split("_")[1]))
+                channel = await self.bot.fetch_channel(record["channel_id"])
 
-            if (db_handler := self.bot.get_cog("DatabaseHandler")) is None:  # type: ignore
-                return logger.error("LFG cog can't find a Database handler")
+                post = Post.from_message(
+                    await channel.fetch_message(interaction.message.id)
+                )
 
-            user, response = interaction.user, interaction.response
-            target, response_id = parse_custom_id(interaction.custom_id)
-            opposite = "main" if target == "reserve" else "reserve"
+                user, response = interaction.user, interaction.response
 
-            db_handler.cursor.execute(queries.fetch_post, (response_id,))
+                try:
+                    await getattr(post, f"alter_to_{group}")(interaction.user)
+                except ValueError:
+                    logger.debug(f"{user} tested the system and tried to enroll to their LFG")
+                    return await response.send_message("Ошибка: нельзя записаться к самому себе.", ephemeral=True)
+                except AlreadyEnrolledError:
+                    logger.debug(f"{user} tried to enroll to both fireteams to ID {post.message.id}")
+                    return await response.send_message("Ошибка: нельзя записаться сразу в оба состава.", ephemeral=True)
+                except FullFireteamError:
+                    logger.debug(f"{user} tried to enroll to full {group} fireteam to ID {post.message.id}")
+                    return await response.send_message("Ошибка: состав уже заполнен(", ephemeral=True)
 
-            if (row := db_handler.cursor.fetchone()) is None:
-                logger.debug(f"{user} pushed strange button to enroll")
-                return await response.send_message("Ошибка: записи... не существует¿", ephemeral=True)
+                await response.send_message(f"*\\*{choice(resources.reactions)}\\**", delete_after=5)
 
-            record = Record(response_id, row)
+            return enroll
 
-            if record.author_id == user.id:
-                logger.debug(f"{user} tested the system and tried to enroll to their LFG")
-                return await response.send_message("Ошибка: нельзя записаться к самому себе.", ephemeral=True)
-
-            if user.id in getattr(record, opposite):
-                logger.debug(f"{user} tried to enroll to both fireteams in activity with ID {response_id}")
-                return await response.send_message("Ошибка: нельзя записаться сразу в оба состава.", ephemeral=True)
-
-            if len(getattr(record, target)) >= 5:
-                logger.debug(f"{user} tried to enroll to full {target} fireteam in activity with ID {response_id}")
-                return await response.send_message("Ошибка: состав уже заполнен(", ephemeral=True)
-
-            if user.id in getattr(record, target):
-                logger.debug(f"{user} excluded from {target} fireteam, activity with ID {response_id}")
-                getattr(record, target).remove(user.id)
-            else:
-                logger.debug(f"{user} enrolled to {target} fireteam, activity with ID {response_id}")
-                getattr(record, target).append(user.id)
-
-            db_handler.con.execute(getattr(queries.update, target), (getattr(record, target),))
-            db_handler.con.commit()
-
-            if fireteam == "main":
-                write_to_database = (fetched_b, opposite_b, response_id)
-                index = 1
-                fetched.insert(0, author_id)
-            else:
-                write_to_database = (opposite_b, fetched_b, response_id)
-                index = 2
-
-            value = [await bot.fetch_user(int(user_id)) for user_id in fetched]
-
-            db_handler.con.execute(QUERIES["enroll_update"], write_to_database)
-            db_handler.con.commit()
-            await response.send_message(f"*\\*{choice(resources.reactions)}\\**", delete_after=5)
-
-            embed = interaction.message.embeds[0]
-            embed._fields[index].value = numbered_list(value)
-            await interaction.message.edit(embed=embed)
-
-        self._functions["enroll"] = enroll
+        self._functions["main"] = callback_builder("main")
+        self._functions["reserve"] = callback_builder("reserve")
 
     @discord.slash_command(**DECORATORS["enroll_create"])
     async def create(self, context: discord.ApplicationContext, raid, time, note):
-        db_handler: DatabaseHandler
-
-        if (db_handler := self.bot.get_cog("DatabaseHandler")) is None:  # type: ignore
-            return logger.error("LFG cog can't find a Database handler")
-
         author = context.user
 
         try:
@@ -148,18 +97,20 @@ class LFG(discord.Cog):
 
         response: discord.Interaction = await context.respond("Создаю сбор...")
 
-        await response.edit_original_message(
-            content="",
-            embed=create_embed(raid, author, timestamp, note, response.id),
-            view=create_enroll_view(response.id, self._functions["enroll"])
+        post = Post(raid, author, timestamp, note)
+        await post.create(
+            response=response,
+            main_callback=self._functions["main"],
+            reserve_callback=self._functions["reserve"],
         )
-
-        db_handler.con.execute(queries.create_post, (response.id, raid, author.id, timestamp.timestamp()), )
-        db_handler.con.commit()
 
         logger.debug(f"{author} created a LFG post to {raid} on {timestamp}")
 
 
 def setup(bot: discord.Bot):
+    if (db_handler := bot.get_cog("DatabaseHandler")) is None:  # type: ignore
+        return logger.error("LFG cog can't find a Database handler")
+
+    Post.set_connection(db_handler.con)  # type: ignore
     bot.add_cog(LFG(bot))
     logger.info("LFG cog was added to your bot")

@@ -1,6 +1,6 @@
 from typing import Iterable
 
-from discord import User, Embed
+from discord import User, Embed, EmbedField
 
 from classes.post import Post
 from resources.activities import profiles
@@ -22,19 +22,23 @@ def create_embed(post: Post) -> Embed:
     return Embed(
         title=f"{r['name']}.\nРекомендуемая сила - {r['power']}.",
         description=f"Время проведения: **{post.time:%d.%m.%Y} в {post.time:%H:%M} (UTC+3)**.",
-        colour=colors["raid"],
+        colour=colors["raid"], fields=[
+            EmbedField(
+                name=":ledger: | Заметка от лидера", inline=False, value=lines(post.note)
+            ),
+            EmbedField(
+                name=":blue_square:  | Основной состав", inline=False, value=numbered_list([post.author])
+            ),
+            EmbedField(
+                name=":green_square:  | Резервный состав", inline=False, value=numbered_list([])
+            )
+        ]
     ).set_author(
         name=f"{post.author.display_name} собирает вас в"
     ).set_thumbnail(
         url=r["thumbnail"]
     ).set_footer(
         text=f"ID: {post.message.id}"
-    ).set_field_at(
-        index=0, name=":ledger: | Заметка от лидера", inline=False, value=lines(post.note)
-    ).set_field_at(
-        index=1, name=":blue_square:  | Основной состав", inline=False, value=numbered_list([post.author])
-    ).set_field_at(
-        index=2, name=":green_square:  | Резервный состав", inline=False, value=numbered_list([])
     )
 
 
