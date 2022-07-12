@@ -1,8 +1,7 @@
-import importlib.resources as ilr
-
 from logging import getLogger
 from random import choice
 from typing import Callable, Dict
+from sqlite3 import Cursor
 
 import discord
 
@@ -17,7 +16,7 @@ import resources
 logger = getLogger(__name__)
 
 DECORATORS = {
-    "enroll_create": {
+    "create": {
         "guild_ids": GUILDS,
         "name": "собрать",
         "description": "создать сбор",
@@ -35,12 +34,21 @@ DECORATORS = {
                 name="заметка", description="заметка, прикреплённая к сбору (\\n для новой строки)"
             )
         ]
+    },
+    "change_author": {
+        "guild_ids": GUILDS,
+        "name": "передать_сбор",
+        "description": "передать сбор другому пользователю",
+        "options": [
+            discord.Option(
+                str, name="идентификатор", description="уникальный номер сбора (находится в последней строчке сбора)",
+            ),
+            discord.Option(
+                discord.User, name="пользователь", description="новый лидер активности"
+            )
+        ]
     }
 }
-
-
-with ilr.path(resources, "database.sqlite3") as p:
-    PATH_TO_DATABASE = p
 
 
 class LFG(discord.Cog):
@@ -85,7 +93,7 @@ class LFG(discord.Cog):
         self._functions["main"] = callback_builder("main")
         self._functions["reserve"] = callback_builder("reserve")
 
-    @discord.slash_command(**DECORATORS["enroll_create"])
+    @discord.slash_command(**DECORATORS["create"])
     async def create(self, context: discord.ApplicationContext, raid, time, note):
         author = context.user
 
@@ -105,6 +113,34 @@ class LFG(discord.Cog):
         )
 
         logger.debug(f"{author} created a LFG post to {raid} on {timestamp}")
+
+    @discord.slash_command(**DECORATORS["change_author"])
+    async def change_author(self, context: discord.ApplicationContext, raw_post_id: str, new_author: discord.User):
+        author = context.author
+
+        try:
+            post_id = int(raw_post_id)
+            record = Post.fetch_record(post_id)
+        except ValueError | KeyError:
+            logger.debug(f"{author} used /change_author command, but put incorrect ID")
+            return await context.respond("Ошибка: не могу найти данную запись.", ephemeral=True)
+
+        if record["author_id"] != author.id:
+            logger.debug(f"{author} used /change_author command without access to the mentioned post")
+            return await context.respond("Ошибка: вы не являетесь лидером данного сбора.", ephemeral=True)
+
+        channel = await self.bot.fetch_channel(record["channel_id"])
+
+        post = Post.from_message(
+            await channel.fetch_message(post_id)
+        )
+
+        try:
+            await post.set_author(new_author)
+        except ValueError:
+            return await context.respond("Ошибка: данный пользователь не может быть лидером сбора.", ephemeral=True)
+
+        await context.respond(f"*\\*{choice(resources.reactions)}\\**", delete_after=resources.reaction_delete_time)
 
 
 def setup(bot: discord.Bot):

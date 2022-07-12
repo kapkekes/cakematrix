@@ -89,14 +89,14 @@ class Post:
 
         if new_author in self.main:
             self.main.remove(new_author)
-            self._connection.execute(queries.update.main, (self._dump_main()))
+            self._connection.execute(queries.update.main, (self._dump_main(), self.message.id))
             embed.set_field_at(
                 index=1, name=":blue_square:  | Основной состав", inline=False,
-                value=builders.numbered_list([self.author] + self.main)
+                value=builders.numbered_list([new_author] + self.main)
             )
         elif new_author in self.reserve:
             self.reserve.remove(new_author)
-            self._connection.execute(queries.update.main, (self._dump_main()))
+            self._connection.execute(queries.update.reserve, (self._dump_reserve(), self.message.id))
             embed.set_field_at(
                 index=2, name=":green_square:  | Резервный состав", inline=False,
                 value=builders.numbered_list(self.reserve)
