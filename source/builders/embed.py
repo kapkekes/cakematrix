@@ -32,7 +32,7 @@ def create_embed(post: Post) -> Embed:
             EmbedField(
                 name=":green_square:  | Резервный состав", inline=False, value=numbered_list([])
             )
-        ]
+        ],
     ).set_author(
         name=f"{post.author.display_name} собирает вас в"
     ).set_thumbnail(
@@ -43,8 +43,8 @@ def create_embed(post: Post) -> Embed:
 
 
 def notify_main(embed: Embed) -> Embed:
-    return embed.set_author(name="Через 15 минут вы отправитесь в")
+    return embed.copy().set_author(name="Через 15 минут вы отправитесь в")
 
 
 def notify_reserve(embed: Embed) -> Embed:
-    return embed.set_author(name="Через 15 минут вы можете отправиться в")
+    return embed.copy().set_author(name="Через 15 минут вы можете отправиться в")

@@ -20,7 +20,7 @@ profiles: Dict[str, Dict] = {
         'name': 'Склеп Глубокого камня',
         'power': 1350,
         'thumbnail':
-            'https://raw.githubusercontent.com/kapkekes/cakematrix/main/resources/thumbnails/deep-stone-crypt.png'
+            'https://raw.githubusercontent.com/kapkekes/cakematrix/main/resources/thumbnails/deep-stone-crypt.jpg'
     },
     'vog': {
         'name': 'Хрустальный чертог',
@@ -38,13 +38,13 @@ profiles: Dict[str, Dict] = {
         'name': 'Клятва послушника',
         'power': 1550,
         'thumbnail':
-            'https://raw.githubusercontent.com/kapkekes/cakematrix/main/resources/thumbnails/vow-of-the-disciple.png'
+            'https://raw.githubusercontent.com/kapkekes/cakematrix/main/resources/thumbnails/vow-of-the-disciple.jpg'
     },
     'votd-master': {
         'name': 'Клятва послушника (мастер)',
         'power': 1590,
         'thumbnail':
-            'https://raw.githubusercontent.com/kapkekes/cakematrix/main/resources/thumbnails/vow-of-the-disciple.png'
+            'https://raw.githubusercontent.com/kapkekes/cakematrix/main/resources/thumbnails/vow-of-the-disciple.jpg'
     }
 }
 

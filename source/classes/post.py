@@ -220,7 +220,12 @@ class Post:
 
         blocked = []
 
-        for user in [self.author] + self.main:
+        try:
+            await self.author.send(embed=notifications["main"])
+        except Forbidden:
+            blocked.append(self.author)
+
+        for user in self.main:
             try:
                 await user.send(embed=notifications["main"])
             except Forbidden:
