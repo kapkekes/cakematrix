@@ -1,3 +1,4 @@
+from datetime import timedelta
 from zoneinfo import ZoneInfo
 
 
@@ -6,6 +7,7 @@ database_time_format = "%Y-%m-%d %H:%M"
 input_time_format = "%d.%m-%H:%M"
 
 timings = {
-    "reaction": 3,
-    "delete": 1800,
+    "reaction": timedelta(seconds=3),
+    "delete": timedelta(minutes=30),
+    "notify": timedelta(minutes=15),
 }

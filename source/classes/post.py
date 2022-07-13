@@ -1,11 +1,11 @@
-from datetime import datetime
+from datetime import datetime, timedelta
 from random import choice
 from sqlite3 import Connection, Row
 from typing import List, Callable, Coroutine, Tuple
 
 import pickle as pkl
 
-from discord import Message, User, Interaction, Embed, InteractionMessage
+from discord import Message, User, Interaction, Embed, InteractionMessage, Colour
 
 import resources.design
 from resources import timezone, emojis
@@ -17,11 +17,11 @@ import queries
 Roster = Tuple[User, List[User], List[User]]
 
 
-class AlreadyEnrolledError(Exception):
+class AlreadyEnrolledError(BaseException):
     pass
 
 
-class FullFireteamError(Exception):
+class FullFireteamError(BaseException):
     pass
 
 
@@ -206,7 +206,12 @@ class Post:
         await self.message.edit(
             embed=embed, view=None, delete_after=resources.timings["delete"]
         )
-    
+
+    async def delete(self):
+        self._connection.execute(queries.delete_post, (self.message.id,))
+        self._connection.commit()
+        await self.message.delete()
+
     async def notify_users(self) -> List[User]:
         notifications = {
             "main": builders.notify_main(self.message.embeds[0]),
@@ -271,6 +276,15 @@ class Post:
             raise KeyError("there are no post with the such message ID")
 
         return record
+
+    @classmethod
+    def fetch_with_time(cls, delta: timedelta = None) -> List[int]:
+        cursor = cls._connection.cursor()
+        time = datetime.now().replace(second=0, microsecond=0)
+        if delta is not None:
+            time += delta
+        cursor.execute(queries.notify_posts, (time.timestamp(),))
+        return [row["message_id"] for row in cursor.fetchall()]
 
     @classmethod
     def set_connection(cls, connection: Connection):

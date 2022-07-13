@@ -1,7 +1,8 @@
 from logging import getLogger
 from random import choice
 from typing import Callable, Dict
-from sqlite3 import Cursor
+
+from discord.ext import tasks
 
 import discord
 
@@ -125,12 +126,18 @@ class LFG(discord.Cog):
                     logger.debug(f"{user} tried to enroll to full {group} fireteam to ID {post.message.id}")
                     return await response.send_message("Ошибка: состав уже заполнен(", ephemeral=True)
 
-                await response.send_message(f"*\\*{choice(resources.reactions)}\\**", delete_after=5)
+                await response.send_message(
+                    f"*\\*{choice(resources.reactions)}\\**",
+                    delete_after=resources.timings["reaction"].seconds
+                )
 
             return enroll
 
         self._functions["main"] = callback_builder("main")
         self._functions["reserve"] = callback_builder("reserve")
+
+        self.notify.start()
+        self.clear.start()
 
     async def _parse_raw_id(self, context: discord.ApplicationContext, raw_post_id: str) -> Post | None:
         author = context.author
@@ -138,7 +145,7 @@ class LFG(discord.Cog):
         try:
             post_id = int(raw_post_id)
             record = Post.fetch_record(post_id)
-        except ValueError | KeyError:
+        except (ValueError, KeyError):
             logger.debug(f"{author} used managing command, but put incorrect ID")
             await context.respond("Ошибка: не могу найти данную запись.", ephemeral=True)
             return None
@@ -185,7 +192,10 @@ class LFG(discord.Cog):
         except ValueError:
             return await context.respond("Ошибка: данный пользователь не может быть лидером сбора.", ephemeral=True)
 
-        await context.respond(f"*\\*{choice(resources.reactions)}\\**", delete_after=resources.reaction_delete_time)
+        await context.respond(
+            f"*\\*{choice(resources.reactions)}\\**",
+            delete_after=resources.timings["delete"].seconds
+        )
 
     @discord.slash_command(**DECORATORS["change_time"])
     async def change_time(self, context: discord.ApplicationContext, raw_post_id: str, new_time: str):
@@ -199,7 +209,10 @@ class LFG(discord.Cog):
             return await context.respond("Ошибка: время имеет некорректный формат.", ephemeral=True)
 
         await post.set_time(timestamp)
-        await context.respond(f"*\\*{choice(resources.reactions)}\\**", delete_after=resources.reaction_delete_time)
+        await context.respond(
+            f"*\\*{choice(resources.reactions)}\\**",
+            delete_after=resources.timings["delete"].seconds
+        )
 
     @discord.slash_command(**DECORATORS["change_note"])
     async def change_note(self, context: discord.ApplicationContext, raw_post_id: str, new_note: str):
@@ -207,7 +220,10 @@ class LFG(discord.Cog):
             return
 
         await post.set_note(new_note)
-        await context.respond(f"*\\*{choice(resources.reactions)}\\**", delete_after=resources.reaction_delete_time)
+        await context.respond(
+            f"*\\*{choice(resources.reactions)}\\**",
+            delete_after=resources.timings["delete"].seconds
+        )
 
     @discord.slash_command(**DECORATORS["cancel"])
     async def cancel(self, context: discord.ApplicationContext, raw_post_id: str, reason: str):
@@ -215,8 +231,30 @@ class LFG(discord.Cog):
             return
 
         await post.cancel(reason)
-        await context.respond(f"*\\*{choice(resources.reactions)} :-(\\**", delete_after=resources.timings)
+        await context.respond(
+            f"*\\*{choice(resources.reactions)} :-(\\**",
+            delete_after=resources.timings["delete"].seconds
+        )
 
+    @tasks.loop(minutes=1)
+    async def notify(self):
+        posts_id = Post.fetch_with_time(resources.timings["notify"])
+
+        for post_id in posts_id:
+            record = Post.fetch_record(post_id)
+            channel = await self.bot.fetch_channel(record["channel_id"])
+            post = Post.from_message(await channel.fetch_message(post_id))
+            await post.notify_users()
+
+    @tasks.loop(minutes=1)
+    async def clear(self):
+        posts_id = Post.fetch_with_time(-resources.timings["delete"])
+
+        for post_id in posts_id:
+            record = Post.fetch_record(post_id)
+            channel = await self.bot.fetch_channel(record["channel_id"])
+            post = Post.from_message(await channel.fetch_message(post_id))
+            await post.delete()
 
 
 def setup(bot: discord.Bot):

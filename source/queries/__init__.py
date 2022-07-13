@@ -13,3 +13,6 @@ fetch_post = """
 delete_post = """
     delete from posts where message_id = :message_id 
 """
+notify_posts = """
+    select message_id from posts where unix_time = :unix_time
+"""
