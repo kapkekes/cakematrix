@@ -5,7 +5,7 @@ from typing import List, Callable, Coroutine, Tuple
 
 import pickle as pkl
 
-from discord import Message, User, Interaction, Embed, InteractionMessage, Colour
+from discord import Message, User, Interaction, Embed, InteractionMessage, Colour, Forbidden
 
 import resources.design
 from resources import timezone, emojis
@@ -218,26 +218,18 @@ class Post:
             "reserve": builders.notify_reserve(self.message.embeds[0])
         }
 
-        record = self.fetch_record(self.message.id)
-
-        author, main, reserve = self._indentify_users(
-            self.message.mentions, record["author_id"], pkl.loads(record["main"]), pkl.loads(record["reserve"])
-        )
-
-        main.append(author)
-
         blocked = []
 
-        for user in main:
-            if user.can_send(notifications["main"]):
+        for user in [self.author] + self.main:
+            try:
                 await user.send(embed=notifications["main"])
-            else:
+            except Forbidden:
                 blocked.append(user)
 
-        for user in reserve:
-            if user.can_send(notifications["reserve"]):
+        for user in self.reserve:
+            try:
                 await user.send(embed=notifications["reserve"])
-            else:
+            except Forbidden:
                 blocked.append(user)
 
         return blocked
