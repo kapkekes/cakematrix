@@ -272,7 +272,7 @@ class Post:
     @classmethod
     def fetch_with_time(cls, delta: timedelta = None) -> List[int]:
         cursor = cls._connection.cursor()
-        time = datetime.now().replace(second=0, microsecond=0)
+        time = datetime.now(tz=timezone).replace(second=0, microsecond=0)
         if delta is not None:
             time += delta
         cursor.execute(queries.notify_posts, (time.timestamp(),))
