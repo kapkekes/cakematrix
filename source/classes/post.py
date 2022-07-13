@@ -127,9 +127,7 @@ class Post:
         embed.description = f"Время проведения: **{self.time:%d.%m.%Y} в {self.time:%H:%M} (UTC+3)**."
 
         await self.message.edit(
-            embed=self.embed.set_author(
-                name=f"{self.author.display_name} собирает вас в"
-            )
+            embed=embed
         )
 
     async def set_note(self, new_note: str):

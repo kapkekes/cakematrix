@@ -47,7 +47,33 @@ DECORATORS = {
                 discord.User, name="пользователь", description="новый лидер активности"
             )
         ]
-    }
+    },
+    "change_time": {
+        "guild_ids": GUILDS,
+        "name": "перенести_сбор",
+        "description": "перенести сбор на другое время",
+        "options": [
+            discord.Option(
+                str, name="идентификатор", description="уникальный номер сбора (находится в последней строчке сбора)",
+            ),
+            discord.Option(
+                str, name="время", description="новое время сбора"
+            )
+        ]
+    },
+    "change_note": {
+        "guild_ids": GUILDS,
+        "name": "изменить_заметку",
+        "description": "прикрепить новую заметку к сбору",
+        "options": [
+            discord.Option(
+                str, name="идентификатор", description="уникальный номер сбора (находится в последней строчке сбора)",
+            ),
+            discord.Option(
+                str, name="заметка", description="новая заметка (\\n для новой строки)", default="отсутствует"
+            )
+        ]
+    },
 }
 
 
@@ -93,14 +119,36 @@ class LFG(discord.Cog):
         self._functions["main"] = callback_builder("main")
         self._functions["reserve"] = callback_builder("reserve")
 
+    async def _parse_raw_id(self, context: discord.ApplicationContext, raw_post_id: str) -> Post | None:
+        author = context.author
+
+        try:
+            post_id = int(raw_post_id)
+            record = Post.fetch_record(post_id)
+        except ValueError | KeyError:
+            logger.debug(f"{author} used managing command, but put incorrect ID")
+            await context.respond("Ошибка: не могу найти данную запись.", ephemeral=True)
+            return None
+
+        if record["author_id"] != author.id:
+            logger.debug(f"{author} used managing command without access to the mentioned post")
+            await context.respond("Ошибка: вы не являетесь лидером данного сбора.", ephemeral=True)
+            return None
+
+        channel = await self.bot.fetch_channel(record["channel_id"])
+
+        return Post.from_message(
+            await channel.fetch_message(post_id)
+        )
+
     @discord.slash_command(**DECORATORS["create"])
-    async def create(self, context: discord.ApplicationContext, raid, time, note):
+    async def create(self, context: discord.ApplicationContext, raid: str, time: str, note: str):
         author = context.user
 
         try:
             timestamp = str_to_datetime(time)
         except ValueError:
-            logger.debug(f"{author} used /lfg command, but put incorrect format time")
+            logger.debug(f"{author} used /create, but put incorrect format time")
             return await context.respond("Ошибка: время имеет некорректный формат.", ephemeral=True)
 
         response: discord.Interaction = await context.respond("Создаю сбор...")
@@ -116,30 +164,36 @@ class LFG(discord.Cog):
 
     @discord.slash_command(**DECORATORS["change_author"])
     async def change_author(self, context: discord.ApplicationContext, raw_post_id: str, new_author: discord.User):
-        author = context.author
-
-        try:
-            post_id = int(raw_post_id)
-            record = Post.fetch_record(post_id)
-        except ValueError | KeyError:
-            logger.debug(f"{author} used /change_author command, but put incorrect ID")
-            return await context.respond("Ошибка: не могу найти данную запись.", ephemeral=True)
-
-        if record["author_id"] != author.id:
-            logger.debug(f"{author} used /change_author command without access to the mentioned post")
-            return await context.respond("Ошибка: вы не являетесь лидером данного сбора.", ephemeral=True)
-
-        channel = await self.bot.fetch_channel(record["channel_id"])
-
-        post = Post.from_message(
-            await channel.fetch_message(post_id)
-        )
+        if (post := await self._parse_raw_id(context, raw_post_id)) is None:
+            return
 
         try:
             await post.set_author(new_author)
         except ValueError:
             return await context.respond("Ошибка: данный пользователь не может быть лидером сбора.", ephemeral=True)
 
+        await context.respond(f"*\\*{choice(resources.reactions)}\\**", delete_after=resources.reaction_delete_time)
+
+    @discord.slash_command(**DECORATORS["change_time"])
+    async def change_time(self, context: discord.ApplicationContext, raw_post_id: str, new_time: str):
+        if (post := await self._parse_raw_id(context, raw_post_id)) is None:
+            return
+
+        try:
+            timestamp = str_to_datetime(new_time)
+        except ValueError:
+            logger.debug(f"{context.author} used managing command, but put incorrect format time")
+            return await context.respond("Ошибка: время имеет некорректный формат.", ephemeral=True)
+
+        await post.set_time(timestamp)
+        await context.respond(f"*\\*{choice(resources.reactions)}\\**", delete_after=resources.reaction_delete_time)
+
+    @discord.slash_command(**DECORATORS["change_note"])
+    async def change_note(self, context: discord.ApplicationContext, raw_post_id: str, new_note: str):
+        if (post := await self._parse_raw_id(context, raw_post_id)) is None:
+            return
+
+        await post.set_note(new_note)
         await context.respond(f"*\\*{choice(resources.reactions)}\\**", delete_after=resources.reaction_delete_time)
 
 
