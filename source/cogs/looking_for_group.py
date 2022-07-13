@@ -74,6 +74,19 @@ DECORATORS = {
             )
         ]
     },
+    "cancel": {
+        "guild_ids": GUILDS,
+        "name": "отменить",
+        "description": "отменить сбор",
+        "options": [
+            discord.Option(
+                str, name="идентификатор", description="уникальный номер сбора (находится в последней строчке сбора)",
+            ),
+            discord.Option(
+                str, name="причина", description="причина отмены сбора (\\n для новой строки)", default="не названа"
+            )
+        ]
+    },
 }
 
 
@@ -195,6 +208,15 @@ class LFG(discord.Cog):
 
         await post.set_note(new_note)
         await context.respond(f"*\\*{choice(resources.reactions)}\\**", delete_after=resources.reaction_delete_time)
+
+    @discord.slash_command(**DECORATORS["cancel"])
+    async def cancel(self, context: discord.ApplicationContext, raw_post_id: str, reason: str):
+        if (post := await self._parse_raw_id(context, raw_post_id)) is None:
+            return
+
+        await post.cancel(reason)
+        await context.respond(f"*\\*{choice(resources.reactions)} :-(\\**", delete_after=resources.timings)
+
 
 
 def setup(bot: discord.Bot):

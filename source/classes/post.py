@@ -7,6 +7,7 @@ import pickle as pkl
 
 from discord import Message, User, Interaction, Embed, InteractionMessage
 
+import resources.design
 from resources import timezone, emojis
 
 import builders
@@ -191,6 +192,21 @@ class Post:
             )
         )
 
+    async def cancel(self, reason: str):
+        embed = self.embed
+        embed._colour = resources.design.colors["cancel"]
+        embed.set_author(
+            name="Сбор был отменён."
+        ).set_field_at(
+            index=0, name=":closed_book: | Причина отмены сбора", inline=False, value=builders.lines(reason)
+        )
+
+        self._connection.execute(queries.delete_post, (self.message.id,))
+        self._connection.commit()
+        await self.message.edit(
+            embed=embed, view=None, delete_after=resources.timings["delete"]
+        )
+    
     async def notify_users(self) -> List[User]:
         notifications = {
             "main": builders.notify_main(self.message.embeds[0]),

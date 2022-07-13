@@ -10,3 +10,6 @@ create_post = f"""
 fetch_post = """
     select channel_id, activity, author_id, unix_time, main, reserve from posts where message_id = :message_id\
 """
+delete_post = """
+    delete from posts where message_id = :message_id 
+"""
