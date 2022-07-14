@@ -1,7 +1,6 @@
 import importlib.resources as ilr
 import logging as log
 import sqlite3 as sql
-from sqlite3 import Row
 
 import discord
 
@@ -25,7 +24,7 @@ class DatabaseHandler(discord.Cog):
     def __init__(self, bot: discord.Bot):
         self.bot = bot
         self.__connection = sql.connect(PATH_TO_DATABASE)
-        self.__connection.row_factory = Row
+        self.__connection.row_factory = sql.Row
 
     @property
     def con(self):

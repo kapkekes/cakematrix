@@ -1,28 +1,17 @@
+import pickle as pkl
 from datetime import datetime, timedelta
 from random import choice
 from sqlite3 import Connection, Row
 from typing import List, Callable, Coroutine, Tuple
 
-import pickle as pkl
+from discord import Message, User, Interaction, Embed, InteractionMessage, Forbidden
 
-from discord import Message, User, Interaction, Embed, InteractionMessage, Colour, Forbidden
-
-import resources.design
-from resources import timezone, emojis
-
-import builders
-import queries
-
+import source.builders as builders
+import source.queries as queries
+from resources import timezone, emojis, colors, timings
+from source.classes.exceptions import *
 
 Roster = Tuple[User, List[User], List[User]]
-
-
-class AlreadyEnrolledError(BaseException):
-    pass
-
-
-class FullFireteamError(BaseException):
-    pass
 
 
 class Post:
@@ -70,7 +59,7 @@ class Post:
             view=builders.create_enrollment_view(self.message.id, main_callback, reserve_callback)
         )
 
-        self._connection.execute(queries.create_post, {
+        self._connection.execute(queries.create, {
             "message_id": self.message.id,
             "channel_id": self.message.channel.id,
             "activity":   self.activity,
@@ -194,21 +183,21 @@ class Post:
 
     async def cancel(self, reason: str):
         embed = self.embed
-        embed._colour = resources.design.colors["cancel"]
+        embed._colour = colors["cancel"]
         embed.set_author(
             name="Сбор был отменён."
         ).set_field_at(
             index=0, name=":closed_book: | Причина отмены сбора", inline=False, value=builders.lines(reason)
         )
 
-        self._connection.execute(queries.delete_post, (self.message.id,))
+        self._connection.execute(queries.delete, (self.message.id,))
         self._connection.commit()
         await self.message.edit(
-            embed=embed, view=None, delete_after=resources.timings["delete"]
+            embed=embed, view=None, delete_after=timings["delete"]
         )
 
     async def delete(self):
-        self._connection.execute(queries.delete_post, (self.message.id,))
+        self._connection.execute(queries.delete, (self.message.id,))
         self._connection.commit()
         await self.message.delete()
 
@@ -267,7 +256,7 @@ class Post:
     def fetch_record(cls, message_id: int) -> Row:
         cursor = cls._connection.cursor()
 
-        cursor.execute(queries.fetch_post, (message_id, ))
+        cursor.execute(queries.fetch, (message_id,))
         record = cursor.fetchone()
         if record is None:
             raise KeyError("there are no post with the such message ID")
@@ -280,7 +269,7 @@ class Post:
         time = datetime.now(tz=timezone).replace(second=0, microsecond=0)
         if delta is not None:
             time += delta
-        cursor.execute(queries.notify_posts, (time.timestamp(),))
+        cursor.execute(queries.notify, (time.timestamp(),))
         return [row["message_id"] for row in cursor.fetchall()]
 
     @classmethod

@@ -2,16 +2,13 @@ from logging import getLogger
 from random import choice
 from typing import Callable, Dict
 
+import discord
 from discord.ext import tasks
 
-import discord
-
-from source.classes.post import Post, AlreadyEnrolledError, FullFireteamError
-from resources.activities import optionChoices
-from utilities import str_to_datetime
-from secret import GUILDS
-
 import resources
+from secret import GUILDS
+from source.classes import Post, AlreadyEnrolledError, FullFireteamError, CogNotFoundError
+from source.utilities import str_to_datetime
 
 
 logger = getLogger(__name__)
@@ -23,7 +20,7 @@ DECORATORS = {
         "description": "создать сбор",
         "options": [
             discord.Option(
-                str, choices=optionChoices,
+                str, choices=resources.option_choices,
                 name="активность", description="активность, в которую ведётся сбор"
             ),
             discord.Option(
@@ -259,7 +256,8 @@ class LFG(discord.Cog):
 
 def setup(bot: discord.Bot):
     if (db_handler := bot.get_cog("DatabaseHandler")) is None:
-        return logger.error("LFG cog can't find a Database handler")
+        logger.error("LFG cog can't find a Database handler")
+        raise CogNotFoundError("LFG cog can't find a Database handler")
 
     Post.set_connection(db_handler.con)  # type: ignore
     bot.add_cog(LFG(bot))

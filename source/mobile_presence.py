@@ -4,6 +4,7 @@ A small script, which modifies payload in identity function of discord.gateway.D
 that online status icon changes from a circle to a mobile.
 """
 import sys
+
 from discord.gateway import DiscordWebSocket, _log
 
 

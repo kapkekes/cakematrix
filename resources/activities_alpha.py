@@ -24,39 +24,32 @@ class Activities(StrEnum):
 
 profiles: Dict[Activities, Profile] = {
     Activities.last_wish: Profile(
-        'Последнее желание',
-        1350,
-        'https://github.com/kapkekes/cake-o-matrix/raw/main/resources/thumbnails/last-wish.jpg'
+        'Последнее желание', 1350,
+        'https://raw.githubusercontent.com/kapkekes/cakematrix/main/resources/thumbnails/last-wish.jpg'
     ),
     Activities.garden: Profile(
-        'Сад спасения',
-        1350,
-        'https://github.com/kapkekes/cake-o-matrix/raw/main/resources/thumbnails/garden-of-salvation.jpg'
+        'Сад спасения', 1350,
+        'https://raw.githubusercontent.com/kapkekes/cakematrix/main/resources/thumbnails/garden-of-salvation.jpg'
     ),
     Activities.deep_stone: Profile(
-        'Склеп Глубокого камня',
-        1350,
-        'https://github.com/kapkekes/cake-o-matrix/raw/main/resources/thumbnails/deep-stone-crypt.png'
+        'Склеп Глубокого камня', 1350,
+        'https://raw.githubusercontent.com/kapkekes/cakematrix/main/resources/thumbnails/deep-stone-crypt.jpg'
     ),
     Activities.vault: Profile(
-        'Хрустальный чертог',
-        1350,
-        'https://github.com/kapkekes/cake-o-matrix/raw/main/resources/thumbnails/vault-of-glass.jpg'
+        'Хрустальный чертог', 1350,
+        'https://raw.githubusercontent.com/kapkekes/cakematrix/main/resources/thumbnails/vault-of-glass.jpg'
     ),
     Activities.vault_master: Profile(
-        'Хрустальный чертог (мастер)',
-        1590,
-        'https://github.com/kapkekes/cake-o-matrix/raw/main/resources/thumbnails/vault-of-glass.jpg'
+        'Хрустальный чертог (мастер)', 1590,
+        'https://raw.githubusercontent.com/kapkekes/cakematrix/main/resources/thumbnails/vault-of-glass.jpg'
     ),
     Activities.vow: Profile(
-        'Клятва послушника',
-        1550,
-        'https://github.com/kapkekes/cake-o-matrix/raw/main/resources/thumbnails/vow-of-the-disciple.png'
+        'Клятва послушника', 1550,
+        'https://raw.githubusercontent.com/kapkekes/cakematrix/main/resources/thumbnails/vow-of-the-disciple.jpg'
     ),
     Activities.vow_master: Profile(
-        'Клятва послушника (мастер)',
-        1590,
-        'https://github.com/kapkekes/cake-o-matrix/raw/main/resources/thumbnails/vow-of-the-disciple.png'
+        'Клятва послушника (мастер)', 1590,
+        'https://raw.githubusercontent.com/kapkekes/cakematrix/main/resources/thumbnails/vow-of-the-disciple.jpg'
     )
 }
 
