@@ -9,13 +9,12 @@ from secret import TOKEN
 
 
 if __name__ == "__main__":
-    with path(config, "logging.yaml") as p, open(p, "r") as f:
-        dictConfig(full_load(f.read()))
+    with path(config, "logging.yaml") as path, open(path, "r") as file:
+        dictConfig(full_load(file.read()))
 
     cakematrix = Bot()
-    cakematrix.load_extensions(
-        "source.cogs.database_handler",
-        "source.cogs.looking_for_group",
-        store=False
-    )
+
+    cakematrix.load_extension("source.cogs.database_handler")
+    cakematrix.load_extension("source.cogs.looking_for_group")
+
     cakematrix.run(TOKEN)
