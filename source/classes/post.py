@@ -256,7 +256,7 @@ class Post:
     def fetch_record(cls, message_id: int) -> Row:
         cursor = cls._connection.cursor()
 
-        cursor.execute(queries.fetch, (message_id,))
+        cursor.execute(queries.fetch_by_message, (message_id,))
         record = cursor.fetchone()
         if record is None:
             raise KeyError("there are no post with the such message ID")
@@ -269,7 +269,7 @@ class Post:
         time = datetime.now(tz=timezone).replace(second=0, microsecond=0)
         if delta is not None:
             time += delta
-        cursor.execute(queries.notify, (time.timestamp(),))
+        cursor.execute(queries.fetch_by_time, (time.timestamp(),))
         return [row["message_id"] for row in cursor.fetchall()]
 
     @classmethod
