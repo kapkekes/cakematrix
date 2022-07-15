@@ -123,10 +123,7 @@ class LFG(discord.Cog):
                     logger.debug(f"{user} tried to enroll to full {group} fireteam to ID {post.message.id}")
                     return await response.send_message("Ошибка: состав уже заполнен(", ephemeral=True)
 
-                await response.send_message(
-                    f"*\\*{choice(resources.reactions)}\\**",
-                    delete_after=resources.timings["reaction"].seconds
-                )
+                await response.send_message(f"*\\*{choice(resources.reactions)}\\**", ephemeral=True)
 
             return enroll
 
@@ -147,16 +144,14 @@ class LFG(discord.Cog):
             await context.respond("Ошибка: не могу найти данную запись.", ephemeral=True)
             return None
 
-        if record["author_id"] != author.id:
+        if record["author"] != author.id:
             logger.debug(f"{author} used managing command without access to the mentioned post")
             await context.respond("Ошибка: вы не являетесь лидером данного сбора.", ephemeral=True)
             return None
 
         channel = await self.bot.fetch_channel(record["channel_id"])
 
-        return Post.from_message(
-            await channel.fetch_message(post_id)
-        )
+        return Post.from_message(await channel.fetch_message(post_id))
 
     @discord.slash_command(**DECORATORS["create"])
     async def create(self, context: discord.ApplicationContext, raid: str, time: str, note: str):
@@ -189,10 +184,7 @@ class LFG(discord.Cog):
         except ValueError:
             return await context.respond("Ошибка: данный пользователь не может быть лидером сбора.", ephemeral=True)
 
-        await context.respond(
-            f"*\\*{choice(resources.reactions)}\\**",
-            delete_after=resources.timings["delete"].seconds
-        )
+        await context.respond(f"*\\*{choice(resources.reactions)}\\**", ephemeral=True)
 
     @discord.slash_command(**DECORATORS["change_time"])
     async def change_time(self, context: discord.ApplicationContext, raw_post_id: str, new_time: str):
@@ -206,10 +198,7 @@ class LFG(discord.Cog):
             return await context.respond("Ошибка: время имеет некорректный формат.", ephemeral=True)
 
         await post.set_time(timestamp)
-        await context.respond(
-            f"*\\*{choice(resources.reactions)}\\**",
-            delete_after=resources.timings["delete"].seconds
-        )
+        await context.respond(f"*\\*{choice(resources.reactions)}\\**", ephemeral=True)
 
     @discord.slash_command(**DECORATORS["change_note"])
     async def change_note(self, context: discord.ApplicationContext, raw_post_id: str, new_note: str):
@@ -217,10 +206,7 @@ class LFG(discord.Cog):
             return
 
         await post.set_note(new_note)
-        await context.respond(
-            f"*\\*{choice(resources.reactions)}\\**",
-            delete_after=resources.timings["delete"].seconds
-        )
+        await context.respond(f"*\\*{choice(resources.reactions)}\\**", ephemeral=True)
 
     @discord.slash_command(**DECORATORS["cancel"])
     async def cancel(self, context: discord.ApplicationContext, raw_post_id: str, reason: str):
@@ -228,10 +214,7 @@ class LFG(discord.Cog):
             return
 
         await post.cancel(reason)
-        await context.respond(
-            f"*\\*{choice(resources.reactions)} :-(\\**",
-            delete_after=resources.timings["delete"].seconds
-        )
+        await context.respond(f"*\\*{choice(resources.reactions)}\\**", ephemeral=True)
 
     @tasks.loop(minutes=1)
     async def notify(self):

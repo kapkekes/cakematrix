@@ -63,7 +63,7 @@ class Post:
             "message_id": self.message.id,
             "channel_id": self.message.channel.id,
             "activity":   self.activity,
-            "author_id":  self.author.id,
+            "author":  self.author.id,
             "unix_time":  int(self.time.timestamp())
         })
         self._connection.commit()
@@ -94,7 +94,7 @@ class Post:
 
         self.author = new_author
         self._connection.execute(
-            queries.update.author_id, (self.author.id, self.message.id)
+            queries.update.author, (self.author.id, self.message.id)
         )
         self._connection.commit()
 
@@ -281,7 +281,7 @@ class Post:
         record = cls.fetch_record(message.id)
 
         author, main, reserve = cls._indentify_users(
-            message.mentions, record["author_id"], pkl.loads(record["main"]), pkl.loads(record["reserve"])
+            message.mentions, record["author"], pkl.loads(record["main"]), pkl.loads(record["reserve"])
         )
 
         post = cls(

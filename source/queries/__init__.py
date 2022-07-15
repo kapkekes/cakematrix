@@ -5,10 +5,10 @@ from . import update
 _magic_hex = "X'80045D942E'"  # pickled empty list
 
 create = f"""
-    insert into posts values (:message_id, :channel_id, :activity, :author_id, :unix_time, {_magic_hex}, {_magic_hex})
+    insert into posts values (:message_id, :channel_id, :activity, :author, :unix_time, {_magic_hex}, {_magic_hex})
 """
 fetch = """
-    select channel_id, activity, author_id, unix_time, main, reserve from posts where message_id = :message_id\
+    select channel_id, activity, author, unix_time, main, reserve from posts where message_id = :message_id
 """
 delete = """
     delete from posts where message_id = :message_id 
@@ -24,7 +24,7 @@ initialize_database = """
                 primary key,
         channel_id integer not null,
         activity   text    not null,
-        author_id  integer not null,
+        author     integer not null,
         unix_time  integer not null,
         main       blob,
         reserve    blob
