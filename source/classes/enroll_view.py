@@ -6,6 +6,7 @@ from discord.ui import Button, View
 
 
 ID = int
+Callback = Callable[[Interaction], Coroutine]
 
 
 class ButtonType(Enum):
@@ -26,7 +27,7 @@ STYLES = {
 
 
 class EnrollButton(Button):
-    def __init__(self, button_type: ButtonType, message_id: ID, callback: Callable[[Interaction], Coroutine]):
+    def __init__(self, button_type: ButtonType, message_id: ID, callback: Callback):
         super().__init__(
             **STYLES[button_type],
             custom_id=f"{button_type.name}_{message_id}"
