@@ -1,0 +1,3 @@
+# By default, the database interface module will try to create a database file in the 'resources' module.
+# If you want to specify another path to the database, change the value of this variable from 'null' to your path.
+path_to_database: null

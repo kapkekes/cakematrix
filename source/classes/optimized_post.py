@@ -1,20 +1,21 @@
 from pickle import dumps, loads
 from datetime import datetime
-from sqlite3 import Connection
 from typing import TypeVar, NamedTuple, Iterator
 
 import discord
-from discord import Message, User
+from discord import Message, User, Embed
 
 import source.queries as queries
 from source.classes.exceptions import AlreadyEnrolledError, FullFireteamError
-from source.classes.enroll_view import EnrollView, Callback
+from source.database import connection
 from resources.activities import profiles
 from resources.constants import timezone, timings
 from resources.design import colors
 
+
 ID = int
-OP = TypeVar("OP", bound="OptimizedPost")
+OP = TypeVar('OP', bound='OptimizedPost')
+EV = TypeVar('EV', bound='EnrollView')
 
 
 class Notification(NamedTuple):
@@ -34,60 +35,55 @@ class OptimizedPost:
     _main: list[ID]
     _reserve: list[ID]
 
-    __connection: Connection
-
     def __init__(self, message: Message, activity: str, time: datetime):
         self.message = message
         self.activity = activity
         self.time = time
 
-    def set_author(self, author: User):
+    async def set_author(self, author: User):
         if author.bot:
             raise ValueError("a bot cannot be set as author of a post")
 
         if self.author == author.id:
             raise ValueError("this user is already the author of the post")
 
-        self.author = author.id
-        embed = self.new_embed()
-        new_main_value = embed.fields[1].value.split("\n")
-
         if author.id in self._main:
-            index = self._main.index(author.id)
-            del new_main_value[index], self._main[index]
-            self.__connection.execute(queries.update.main, (dumps(self._main), self.message.id))
+            embed = await self.alter_in_main(author)
         elif author.id in self._reserve:
-            index = self._reserve.index(author.id)
-            new_reserve_value = embed.fields[2].value.split("\n")
-            del new_reserve_value[index], self._reserve[index]
-            embed._fields[2].value = "\n".join(new_reserve_value)
-            self.__connection.execute(queries.update.reserve, (dumps(self._reserve), self.message.id))
+            embed = await self.alter_in_reserve(author)
+        else:
+            embed = self.new_embed()
 
-        new_main_value.insert(0, f"#1 - {author.mention} - {author.display_name}")
-        embed._fields[1].value = "\n".join(new_main_value)
+        self.author = author.id
 
-        self.__connection.execute(queries.update.author, (self.author, self.message.id))
-        self.__connection.commit()
+        embed.set_author(name=f"{author.display_name} собирает вас в")
 
-        return self.message.edit(embed=embed)
+        new_field = embed.fields[1].value.split("\n")
+        new_field[0] = f"#1 - {author.mention} - {author.display_name}"
+        embed._fields[1].value = "\n".join(new_field)
 
-    def set_time(self, time: datetime):
+        connection.execute(queries.update.author, (self.author, self.id))
+        connection.commit()
+
+        await self.message.edit(embed=embed)
+
+    async def set_time(self, time: datetime):
         self.time = time
-        self.__connection.execute(queries.update.unix_time, (self.time.timestamp(), self.message.id))
-        self.__connection.commit()
+        connection.execute(queries.update.unix_time, (self.time.timestamp(), self.id))
+        connection.commit()
 
         embed = self.new_embed()
         embed.description = f"Время проведения: **{self.time:%d.%m.%Y} в {self.time:%H:%M} (UTC+3)**."
 
-        return self.message.edit(embed=embed)
+        await self.message.edit(embed=embed)
 
-    def set_note(self, note: str):
+    async def set_note(self, note: str):
         embed = self.new_embed()
         embed._fields[0].value = note.replace("\\n", "\n")
 
-        return self.message.edit(embed=embed)
+        await self.message.edit(embed=embed)
 
-    def alter_in_main(self, user: User):
+    async def alter_in_main(self, user: User) -> Embed:
         if user.id == self.author:
             raise ValueError("author can't enroll to their post")
 
@@ -105,20 +101,21 @@ class OptimizedPost:
             raise FullFireteamError("main fireteam is already full")
         else:
             self._main.append(user.id)
-            new_value += f"\n#{len(self._main)} - {user.mention} - {user.display_name}"
+            new_value.append(f"#{len(self._main) + 1} - {user.mention} - {user.display_name}")
 
-        self.__connection.execute(queries.update.main, (dumps(self._main), self.message.id))
-        self.__connection.commit()
+        connection.execute(queries.update.main, (dumps(self._main), self.id))
+        connection.commit()
 
         embed._fields[1].value = "\n".join(new_value)
 
-        return self.message.edit(embed=embed)
+        await self.message.edit(embed=embed)
+        return embed
 
-    def alter_in_reserve(self, user: User):
+    async def alter_in_reserve(self, user: User) -> Embed:
         if user.id == self.author:
             raise ValueError("author can't enroll to their post")
 
-        if user.id in self._reserve:
+        if user.id in self._main:
             raise AlreadyEnrolledError("this user has already enrolled to reserve fireteam")
 
         embed = self.new_embed()
@@ -126,10 +123,10 @@ class OptimizedPost:
 
         if not self._reserve:
             self._reserve.append(user.id)
-            new_value = f"#1 - {user.mention} - {user.display_name}"
+            new_value = [f"#1 - {user.mention} - {user.display_name}"]
         elif user.id in self._reserve and len(self._reserve) == 1:
             self._reserve.remove(user.id)
-            new_value = "здесь ещё никого нет"
+            new_value = ["здесь ещё никого нет"]
         elif user.id in self._reserve:
             index = self._reserve.index(user.id)
             del self._reserve[index], new_value[index]
@@ -138,16 +135,17 @@ class OptimizedPost:
             raise FullFireteamError("reserve fireteam is already full")
         else:
             self._reserve.append(user.id)
-            new_value += f"\n#{len(self._reserve)} - {user.mention} - {user.display_name}"
+            new_value.append(f"#{len(self._reserve)} - {user.mention} - {user.display_name}")
 
-        self.__connection.execute(queries.update.reserve, (dumps(self._reserve), self.message.id))
-        self.__connection.commit()
+        connection.execute(queries.update.reserve, (dumps(self._reserve), self.id))
+        connection.commit()
 
         embed._fields[2].value = "\n".join(new_value)
 
-        return self.message.edit(embed=embed)
+        await self.message.edit(embed=embed)
+        return embed
 
-    def cancel(self, reason: str):
+    async def cancel(self, reason: str) -> Embed:
         embed = self.new_embed()
         embed._colour = colors["cancel"]
         embed.set_author(
@@ -156,19 +154,24 @@ class OptimizedPost:
             index=0, name=":closed_book: | Причина отмены сбора", inline=False, value=reason.replace("\\n", "\n")
         )
 
-        self.__connection.execute(queries.delete, (self.message.id,))
-        self.__connection.commit()
+        connection.execute(queries.delete, (self.id,))
+        connection.commit()
 
-        return self.message.edit(embed=embed, view=None, delete_after=timings["delete"].seconds)
+        await self.message.edit(embed=embed, view=None, delete_after=timings["delete"].seconds)
+        return embed
 
-    def delete(self):
-        self.__connection.execute(queries.delete, (self.message.id,))
-        self.__connection.commit()
+    async def delete(self):
+        connection.execute(queries.delete, (self.id,))
+        connection.commit()
 
-        return self.message.delete()
+        await self.message.delete()
 
     def new_embed(self):
         return self.message.embeds[0].copy()
+
+    @property
+    def id(self):
+        return self.message.id
 
     @property
     def main(self):
@@ -177,20 +180,9 @@ class OptimizedPost:
     @property
     def reserve(self):
         return self._reserve
-
+    
     @classmethod
-    def set_connection(cls, connection: Connection):
-        cls.__connection = connection
-
-    @classmethod
-    async def create(cls,
-                     message: Message,
-                     activity: str,
-                     author: User,
-                     time: datetime,
-                     note: str,
-                     main_callback: Callback,
-                     reserve_callback: Callback) -> OP:
+    async def create(cls, message: Message, activity: str, author: User, time: datetime, note: str) -> OP:
         post = cls(message, activity, time)
         post.author = author.id
         post._main = []
@@ -198,6 +190,7 @@ class OptimizedPost:
 
         profile = profiles[post.activity]
 
+        from source.classes.enroll_view import EnrollView
         await post.message.edit(
             content="",
             embed=discord.Embed(
@@ -208,7 +201,7 @@ class OptimizedPost:
             ).set_thumbnail(
                 url=profile.thumbnail_url
             ).set_footer(
-                text=f"ID: {post.message.id}"
+                text=f"ID: {post.id}"
             ).add_field(
                 name=":ledger: | Заметка от лидера", inline=False,
                 value=note.replace("\\n", "\n")
@@ -220,15 +213,23 @@ class OptimizedPost:
                 value="здесь ещё никого нет"
             ),
             view=EnrollView(
-                post.message.id, main_callback, reserve_callback
+                post.id
             )
         )
+        connection.execute(queries.create, {
+            "message_id": post.id,
+            "channel_id": post.message.channel.id,
+            "activity":   post.activity,
+            "author":     post.author,
+            "unix_time":  int(post.time.timestamp())
+        })
+        connection.commit()
 
         return post
 
     @classmethod
-    def restore(cls, message: Message):
-        cursor = cls.__connection.cursor()
+    def restore(cls, message: Message) -> OP:
+        cursor = connection.cursor()
 
         cursor.execute(queries.fetch_by_message, (message.id,))
         if (record := cursor.fetchone()) is None:
@@ -241,7 +242,7 @@ class OptimizedPost:
 
     @classmethod
     def deletion(cls) -> Iterator[tuple[ID, ID]]:
-        cursor = cls.__connection.cursor()
+        cursor = connection.cursor()
         time = datetime.now(tz=timezone).replace(second=0, microsecond=0) - timings["delete"]
         cursor.execute(queries.fetch_by_time, (time.timestamp(),))
 
@@ -249,10 +250,22 @@ class OptimizedPost:
             yield record["channel_id"], record["message_id"]
 
     @classmethod
-    def notification(cls) -> Iterator[Notification]:
-        cursor = cls.__connection.cursor()
-        time = datetime.now(tz=timezone).replace(second=0, microsecond=0) - timings["notify"]
+    def reminder(cls) -> Iterator[Notification]:
+        cursor = connection.cursor()
+        time = datetime.now(tz=timezone).replace(second=0, microsecond=0) + timings["notify"]
         cursor.execute(queries.fetch_by_time, (time.timestamp(),))
 
         for record in cursor.fetchall():
-            yield Notification(**record)
+            yield Notification(
+                record["channel_id"], record["message_id"],
+                [record["author"]] + loads(record["main"]), loads(record["reserve"])
+            )
+
+    @classmethod
+    def revival(cls) -> Iterator[EV]:
+        cursor = connection.cursor()
+        cursor.execute(queries.revive)
+
+        from source.classes.enroll_view import EnrollView
+        for record in cursor.fetchall():
+            yield EnrollView(record["message_id"])
