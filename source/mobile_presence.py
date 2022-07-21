@@ -1,7 +1,7 @@
 """Web-online to Mobile-online
 
-A small script, which modifies payload in identity function of discord.gateway.DiscordWebSocket class in such way
-that online status icon changes from a circle to a mobile.
+A small script, which modifies the payload in the 'identity' function of discord.gateway.DiscordWebSocket class
+so that the online status icon changes from a circle to a mobile.
 """
 import sys
 
